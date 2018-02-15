@@ -1,0 +1,2 @@
+# Freddie
+Freddie Shiny server
