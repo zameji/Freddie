@@ -19,7 +19,7 @@ shinyUI(fluidPage(
                    '\t')
 		),
 		column(6,
-          radioButtons(inputId='quote', label='Quote',
+          radioButtons(inputId='quote', label='Quote sign',
                    c(None='',
                      'Double Quote'='"',
                      'Single Quote'="'"),
