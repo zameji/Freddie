@@ -30,45 +30,9 @@ shinyUI(fluidPage(
                        h2("variable selection:"),
                        uiOutput("varselector")
 					   )
-		# conditionalPanel(condition = "output.PlotType",
-			# h2("figure settings:"),
-			# textInput(inputId="titleInput", label='Title', value = "",)
-		  # ),
-		# conditionalPanel(condition = "output.PlotType=='bar plot:'",
-		   # checkboxInput(inputId='leg', label='Legend', TRUE),
-		   # checkboxInput(inputId='besideCheck', label='Do not stack', FALSE),
-		   # radioButtons(inputId='propCheck',
-				# label='',
-				# choices = c("absolute", "relative"), selected = "absolute")
-		  # ),
-		# conditionalPanel(condition = "output.PlotType=='box plot:'",
-		   # checkboxInput(inputId='notchCheck', label='Notches', FALSE)
-		  # ),
-		# conditionalPanel(condition = "output.PlotType=='scatter plot:'",
-		   # checkboxInput(inputId='regrCheck', label='Regression line', FALSE)
-		  # )
-		# conditionalPanel(condition = "output.PlotType",
-		   # downloadButton("downloadData", 'Download figure')
-		   # )
     ),
     mainPanel(
-	
-	  # conditionalPanel(condition = "output.sum",
-      # h2("overview of dataset:")
-      # ),
-      # verbatimTextOutput("sum"),
-      # conditionalPanel(condition = "output.Plot",
-                       # h2(textOutput("PlotType"))
-      # ),
-      # plotOutput("Plot"),
-      # conditionalPanel(condition = "output.Testresults",
-                       # h2("statistics:"),
-                       # p(textOutput("Pvalue")),
-                       # p(textOutput("Signalert"))
-      # ),
-      # verbatimTextOutput("Testresults")
-	  
-		fluidRow(
+			fluidRow(
 			tabsetPanel(
 				tabPanel("Summary", 
 					verbatimTextOutput("sum"),
@@ -80,7 +44,19 @@ shinyUI(fluidPage(
 						column(6,	
 							plotOutput("SumPlotY")
 							)
-					)
+					),
+					fluidRow(
+						column(6,align="center",
+							conditionalPanel(condition="Output.PlotType",
+								uiOutput("Xsettings")
+								)
+							),
+						column(6,align="center",
+							conditionalPanel(condition="Output.PlotType",
+								uiOutput("Ysettings")
+								)
+							)
+						)
 				), 
 				tabPanel("Plot", 
 					h2(textOutput("PlotType")),
@@ -121,8 +97,7 @@ shinyUI(fluidPage(
 					verbatimTextOutput("Testresults"))
 				)
 			)
-		# hr(),
-
-			)	  
+		)	  
 	)
-))	
+)
+)

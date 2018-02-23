@@ -43,14 +43,26 @@ shinyServer(function(input, output) {
     
 	XTitle <- reactive({paste(input$xvar)})
 	YTitle <- reactive({paste(input$yvar)})
-	
+
+    output$Xsettings <- renderUI({
+	if(is.numeric(datasetInput()[[input$xvar]]) != TRUE) {invisible()} else {
+   		 sliderInput("inXSlider", "Range of values in histogram", min=range(datasetInput()[[input$xvar]])[1], max=range(datasetInput()[[input$xvar]])[2], value=range(datasetInput()[[input$xvar]]))
+			}
+	})
+
+    output$Ysettings <- renderUI({
+	if(is.numeric(datasetInput()[[input$yvar]]) != TRUE) {invisible()} else {
+    		sliderInput("inYSlider", "Range of values in histogram", min=range(datasetInput()[[input$yvar]])[1], max=range(datasetInput()[[input$yvar]])[2], value=range(datasetInput()[[input$yvar]]))
+			}
+	})
+
 	SummaryPlotX <- function(){
-		if (is.numeric(datasetInput()[[input$xvar]])){hist(datasetInput()[[input$xvar]], xlab=XTitle())}
+		if (is.numeric(datasetInput()[[input$xvar]])){hist(datasetInput()[[input$xvar]], xlab=XTitle(), xlim=input$inXSlider)}
 		if (is.factor(datasetInput()[[input$xvar]])){plot(datasetInput()[[input$xvar]], xlab=XTitle())}
 		}
 		
 	SummaryPlotY <- function(){
-		if (is.numeric(datasetInput()[[input$yvar]])){hist(datasetInput()[[input$yvar]], xlab=YTitle())}
+		if (is.numeric(datasetInput()[[input$yvar]])){hist(datasetInput()[[input$yvar]], xlab=YTitle(), xlim=input$inYSlider)}
 		if (is.factor(datasetInput()[[input$yvar]])){plot(datasetInput()[[input$yvar]], xlab=YTitle())}
 		}
 	
@@ -209,12 +221,5 @@ shinyServer(function(input, output) {
     
     output$Testresults <- renderPrint({
       Testcode()
-      #dataobject()
     })
-    
-	# output$Tabs <- 
-	
-    #output$Pvalue <- renderText({
-    #  pvalue
-    #})
 })
