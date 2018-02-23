@@ -1,5 +1,5 @@
 library(shiny)
-ui <- shinyUI(fluidPage(
+shinyUI(fluidPage(
   titlePanel("FREDDIE Shiny"),
   sidebarLayout(
     sidebarPanel(width = 3,

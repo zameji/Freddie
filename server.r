@@ -1,7 +1,7 @@
 library(shiny)
 library(lmtest)
 
-server<- shinyServer(function(input, output) {
+shinyServer(function(input, output) {
     
     datasetInput <- reactive({
       
