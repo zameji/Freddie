@@ -45,24 +45,33 @@ shinyServer(function(input, output) {
 	YTitle <- reactive({paste(input$yvar)})
 
     output$Xsettings <- renderUI({
-	if(is.numeric(datasetInput()[[input$xvar]]) != TRUE) {invisible()} else {
-   		 sliderInput("inXSlider", "Range of values in histogram", min=range(datasetInput()[[input$xvar]])[1], max=range(datasetInput()[[input$xvar]])[2], value=range(datasetInput()[[input$xvar]]))
-			}
+	if(is.numeric(datasetInput()[[input$xvar]]) != TRUE) {invisible()} else {tagList(
+   		 sliderInput("inXSlider", "Range of values in histogram", min=range(datasetInput()[[input$xvar]])[1], max=range(datasetInput()[[input$xvar]])[2], value=range(datasetInput()[[input$xvar]])),
+		 sliderInput("inXBinSlider", "Number of bars displayed in histogram", min=5, max=25, value=10)
+			)}
 	})
 
     output$Ysettings <- renderUI({
-	if(is.numeric(datasetInput()[[input$yvar]]) != TRUE) {invisible()} else {
-    		sliderInput("inYSlider", "Range of values in histogram", min=range(datasetInput()[[input$yvar]])[1], max=range(datasetInput()[[input$yvar]])[2], value=range(datasetInput()[[input$yvar]]))
-			}
+	if(is.numeric(datasetInput()[[input$yvar]]) != TRUE) {invisible()} else {tagList(
+    		sliderInput("inYSlider", "Range of values in histogram", min=range(datasetInput()[[input$yvar]])[1], max=range(datasetInput()[[input$yvar]])[2], value=range(datasetInput()[[input$yvar]])),
+		sliderInput("inYBinSlider", "Number of bars displayed in histogram", min=5, max=25, value=10)
+
+			)}
 	})
 
 	SummaryPlotX <- function(){
-		if (is.numeric(datasetInput()[[input$xvar]])){hist(datasetInput()[[input$xvar]], xlab=XTitle(), xlim=input$inXSlider)}
+		if (is.numeric(datasetInput()[[input$xvar]])){
+			Xdata <- datasetInput()[[input$xvar]]
+			Xdata <- Xdata[Xdata>input$inXSlider[1] & Xdata<input$inXSlider[2]]
+			hist(Xdata, xlab=XTitle(), breaks=seq(min(Xdata), max(Xdata), l=input$inXBinSlider+1), main=XTitle())}
 		if (is.factor(datasetInput()[[input$xvar]])){plot(datasetInput()[[input$xvar]], xlab=XTitle())}
 		}
 		
 	SummaryPlotY <- function(){
-		if (is.numeric(datasetInput()[[input$yvar]])){hist(datasetInput()[[input$yvar]], xlab=YTitle(), xlim=input$inYSlider)}
+		if (is.numeric(datasetInput()[[input$yvar]])){
+			Ydata <- datasetInput()[[input$yvar]]
+			Ydata <- Ydata[Ydata>input$inYSlider[1] & Ydata<input$inYSlider[2]]
+			hist(Ydata, xlab=YTitle(),breaks=seq(min(Ydata), max(Ydata), l=input$inYBinSlider+1), main=YTitle())}
 		if (is.factor(datasetInput()[[input$yvar]])){plot(datasetInput()[[input$yvar]], xlab=YTitle())}
 		}
 	
