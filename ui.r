@@ -92,6 +92,8 @@ shinyUI(fluidPage(
 					),
 				tabPanel("Results", 
 					h2("statistics:"),
+			  p(textOutput("TestDescription")),
+			  fluidRow(uiOutput("TestSettings")),
                     p(textOutput("Pvalue")),
                     p(textOutput("Signalert")),
 					verbatimTextOutput("Testresults"))
