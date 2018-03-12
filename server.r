@@ -145,28 +145,64 @@ shinyServer(function(input, output) {
       },
       contentType = "image/png"
     )
-    
+   
+
+# DETERMINE THE TYPE OF TEST USED   
+	TestType <- reactive({
+		if (PlotType()=="box plot:" & length(levels(datasetInput()[[input$xvar]]))==2 ){
+			normality <- aggregate(formula = datasetInput()[[input$yvar]] ~ datasetInput()[[input$xvar]], FUN = function(x) {y <- shapiro.test(x); c(y$statistic, y$p.value)})
+			variance <- var.test(datasetInput()[[input$yvar]] ~ datasetInput()[[input$xvar]], ratio = 1, alternative = "two.sided", conf.level = 0.95,)
+			if (range(normality[,2][,2])[1] >= 0.05 & variance$p.value >= 0.05){
+				return("t")} #TTEST
+			if (range(normality[,2][,2])[1] < 0.05 | variance$p.value < 0.05) {
+				return("wilcox")}#WILCOX TEST
+			}
+		if (PlotType()=="box plot:" & length(levels(datasetInput()[[input$xvar]]))>2 ){
+			return("linreg")}#LINEAR REGRESSION
+			
+		if (PlotType()=="scatter plot:"){
+			scedasticity <- bptest(lm(datasetInput()[[input$yvar]] ~ datasetInput()[[input$xvar]]))
+			normality <- lapply(data.frame(datasetInput()[[input$yvar]], datasetInput()[[input$xvar]]) , function(x) {y <- shapiro.test(x); c(y$p.value)})	
+			if (range(normality)[1] >= 0.05 & scedasticity$p.value >= 0.05) {
+				return("pearson")}#PEARSON CORELATION
+			if (range(normality)[1] < 0.05 | scedasticity$p.value <0.05) {
+				return("kendall")}#KENDALL
+			}
+        if (PlotType()=="bar plot:"){			
+			if (range(table(datasetInput()[[input$yvar]], datasetInput()[[input$xvar]]))[1] > 5) {	
+				return("chisq")}#CHISQ
+			if (range(table(datasetInput()[[input$yvar]], datasetInput()[[input$xvar]]))[1] <= 5) {	
+				return("fisher")}#FISHER
+			}
+		return("none")
+	})
+	
+
+# CHOOSE SETTINGS TO DISPLAY DEPENDING ON THE TYPE OF TEST USED
+	
+	output$TestSettings <- renderUI({
+		CurrentTestType <- TestType()
+		if (CurrentTestType == "t") {invisible()}
+		else if (CurrentTestType == "wilcox") {invisible()}
+		else if (CurrentTestType == "linreg") {invisible()}
+		else if (CurrentTestType == "pearson") {invisible()}
+		else if (CurrentTestType == "kendall") {invisible()}
+		else if (CurrentTestType == "chisq") {invisible()}
+		else if (CurrentTestType == "fisher") {invisible()}
+		else {invisible()}
+		})
 
 ###TESTCODE NEEDS TO BE SPLIT INTO TEST-DEFINING CODE AND TEXT EXECUTING CODE TO AVOID ISSUES WITH RESETTING
     Testcode <- reactive({
       if (!(is.null(PlotType()))){
-	  
+	  	CurrentTestType <- TestType()
         # t-test logic for numeric-categorial (two levels): if parameters fulfilled, do t-test, if not, do Wilcoxon-Mann-Whitney
         
-		if (PlotType()=="box plot:" & length(levels(datasetInput()[[input$xvar]]))==2 ){
-			normality <- aggregate(formula = datasetInput()[[input$yvar]] ~ datasetInput()[[input$xvar]], FUN = function(x) {y <- shapiro.test(x); c(y$statistic, y$p.value)})
-			variance <- var.test(datasetInput()[[input$yvar]] ~ datasetInput()[[input$xvar]], ratio = 1, alternative = "two.sided", conf.level = 0.95,)
-		
-		# t-test parameters fulfilled
-		if (range(normality[,2][,2])[1] >= 0.05 & variance$p.value >= 0.05){
-			output$TestSettings <- renderUI(invisible())
+		if (CurrentTestType  == "t") {
 			output$TestDescription <- renderText({
 			"The assumptions required for a t-test (normal distribution of variables, variance) seem to be fulfilled.\nHowever, you need to verify whether your data is a random representative selection from the whole data (or the whole data)." 
 			 })
-			if (input$RandomSample == T){
-				results <- t.test(datasetInput()[[input$yvar]] ~ datasetInput()[[input$xvar]])}
-			if (input$RandomSample == F) {
-				results <- wilcox.test(datasetInput()[[input$yvar]] ~ datasetInput()[[input$xvar]])}
+			results <- t.test(datasetInput()[[input$yvar]] ~ datasetInput()[[input$xvar]])
 			output$Signalert <- renderText({
 				ifelse(results$p.value<=0.05, "significant", "not significant")
 			})
@@ -176,80 +212,74 @@ shinyServer(function(input, output) {
 		}
 
 		# t-test parameters not fulfilled
-		if (range(normality[,2][,2])[1] < 0.05 | variance$p.value < 0.05) {
-			output$TestSettings <- renderUI(invisible())
+		if (CurrentTestType  == "wilcox") {
 			output$TestDescription <- renderText({
 				"Some of the assumptions required for a t-test (normal distribution of variables, variance) seem not to be fulfilled. A non-parametric test will thus be performed." 
 				})
 			results <- wilcox.test(datasetInput()[[input$yvar]] ~ datasetInput()[[input$xvar]])
 			output$Signalert <- renderText({
-            ifelse(results$p.value<=0.05, "significant", "not significant")
+				ifelse(results$p.value<=0.05, "significant", "not significant")
 				})
 			output$Pvalue <- renderText({
-            paste("p ", ifelse(results$p.value<0.001, "< 0.001", paste("= ", (round(results$p.value,3)), sep="")), sep="")
-				})
-			}
+				paste("p ", ifelse(results$p.value<0.001, "< 0.001", paste("= ", (round(results$p.value,3)), sep="")), sep="")
+			})
 		}
+		
         # linear regression for numeric-categorial (more levels)
-        if (PlotType()=="box plot:" & length(levels(datasetInput()[[input$xvar]]))>2 ){
-			output$TestDescription <- renderText("No description for your test")
-			output$TestSettings  <- renderUI(invisible())
+        if (CurrentTestType  == "linreg"){
+			output$TestDescription <- renderText("Description of linear regression")
 			results <- summary(lm(datasetInput()[[input$yvar]] ~ datasetInput()[[input$xvar]]))
 			pvalue <- pf(results$fstatistic[1], results$fstatistic[2], results$fstatistic[3], lower.tail =F)
 			output$Signalert <- renderText({
-            ifelse(pvalue<=0.05, "significant", "not significant")
+				ifelse(pvalue<=0.05, "significant", "not significant")
 				})
 			output$Pvalue <- renderText({
-            paste("p ", ifelse(pvalue<0.001, "< 0.001", paste("= ", (round(pvalue,3)), sep="")), sep="")
+				paste("p ", ifelse(pvalue<0.001, "< 0.001", paste("= ", (round(pvalue,3)), sep="")), sep="")
 				})
 			}
 		
         # correlation test for numeric-numeric: if parameters fulfilled, do Pearson-r, if not, do Kendall-tau
-        if (PlotType()=="scatter plot:"){
-			output$TestDescription <- renderText("No description for your test")
-			output$TestSettings  <- renderUI(invisible())
-			scedasticity <- bptest(lm(datasetInput()[[input$yvar]] ~ datasetInput()[[input$xvar]]))
-			normality <- lapply(data.frame(datasetInput()[[input$yvar]], datasetInput()[[input$xvar]]) , function(x) {y <- shapiro.test(x); c(y$p.value)})
-          
-			if (range(normality)[1] >= 0.05 & scedasticity$p.value >= 0.05) {
-				results <- cor.test(datasetInput()[[input$yvar]], datasetInput()[[input$xvar]], method="pearson")
-				output$Signalert <- renderText({
+        if (CurrentTestType  == "pearson") {
+			output$TestDescription <- renderText("Description of Pearson-r")          
+			results <- cor.test(datasetInput()[[input$yvar]], datasetInput()[[input$xvar]], method="pearson")
+			output$Signalert <- renderText({
 				ifelse(results$p.value<=0.05, "significant", "not significant")
-					})
-				output$Pvalue <- renderText({
+				})
+			output$Pvalue <- renderText({
 				paste("p ", ifelse(results$p.value<0.001, "< 0.001", paste("= ", (round(results$p.value,3)), sep="")), sep="")
-					})}
-			if (range(normality)[1] < 0.05 | scedasticity$p.value <0.05) {
-				results <- cor.test(datasetInput()[[input$yvar]], datasetInput()[[input$xvar]], method="kendall")
-				output$Signalert <- renderText({
+				})
+			}
+		if (CurrentTestType  == "kendall") {
+			output$TestDescription <- renderText("Description of Kendall-tau")
+			results <- cor.test(datasetInput()[[input$yvar]], datasetInput()[[input$xvar]], method="kendall")
+			output$Signalert <- renderText({
 				ifelse(results$p.value<=0.05, "significant", "not significant")
-					})
-				output$Pvalue <- renderText({
+				})
+			output$Pvalue <- renderText({
 				paste("p ", ifelse(results$p.value<0.001, "< 0.001", paste("= ", (round(results$p.value,3)), sep="")), sep="")
-					})}
-        }
+				})
+			}
+        
         # categorial-categorial: if parameters fulfilled, do a chi square test, if not do fisher's exact
-        if (PlotType()=="bar plot:"){
-			output$TestDescription <- renderText("No description for your test")
-			output$TestSettings  <- renderUI(invisible())
-			if (range(table(datasetInput()[[input$yvar]], datasetInput()[[input$xvar]]))[1] > 5) {		
-				results <- chisq.test(table(datasetInput()[[input$yvar]], datasetInput()[[input$xvar]]))
-				output$Signalert <- renderText({
+        if (CurrentTestType  == "chisq"){
+			output$TestDescription <- renderText("Description of chisq")	
+			results <- chisq.test(table(datasetInput()[[input$yvar]], datasetInput()[[input$xvar]]))
+			output$Signalert <- renderText({
 				ifelse(results$p.value<=0.05, "significant", "not significant")
-					})
-				output$Pvalue <- renderText({
+				})
+			output$Pvalue <- renderText({
 				paste("p ", ifelse(results$p.value<0.001, "< 0.001", paste("= ", (round(results$p.value,3)), sep="")), sep="")
-					})
-				}
-			if (range(table(datasetInput()[[input$yvar]], datasetInput()[[input$xvar]]))[1] <= 5) {		
-				results <- fisher.test(table(datasetInput()[[input$yvar]], datasetInput()[[input$xvar]]))
-				output$Signalert <- renderText({
+				})
+			}
+		if (CurrentTestType  == "fisher") {
+			output$TestDescription <- renderText("Description of fisher")		
+			results <- fisher.test(table(datasetInput()[[input$yvar]], datasetInput()[[input$xvar]]))
+			output$Signalert <- renderText({
 				ifelse(results$p.value<=0.05, "significant", "not significant")
-					})
-				output$Pvalue <- renderText({
+				})
+			output$Pvalue <- renderText({
 				paste("p ", ifelse(results$p.value<0.001, "< 0.001", paste("= ", (round(results$p.value,3)), sep="")), sep="")
-					})
-				}
+				})
 			}
         return(results)
 		}
