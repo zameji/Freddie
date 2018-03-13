@@ -90,11 +90,13 @@ shinyUI(fluidPage(
 							)
 						)
 					),
-				tabPanel("Results", 
-					h2("statistics:"),
-			  p(textOutput("TestDescription")),
-			  fluidRow(uiOutput("TestSettings")),
-                    p(textOutput("Pvalue")),
+				tabPanel("Statistic testing", 
+					p(textOutput("TestDescription")),
+					h2("test settings:"),
+					fluidRow(column(1),
+						column(11, uiOutput("TestSettings"))),
+                    h2("test results:"),
+					p(textOutput("Pvalue")),
                     p(textOutput("Signalert")),
 					verbatimTextOutput("Testresults"))
 				)

@@ -149,6 +149,7 @@ shinyServer(function(input, output) {
 
 # DETERMINE THE TYPE OF TEST USED   
 	TestType <- reactive({
+	if (!(is.null(PlotType()))){
 		if (PlotType()=="box plot:" & length(levels(datasetInput()[[input$xvar]]))==2 ){
 			normality <- aggregate(formula = datasetInput()[[input$yvar]] ~ datasetInput()[[input$xvar]], FUN = function(x) {y <- shapiro.test(x); c(y$statistic, y$p.value)})
 			variance <- var.test(datasetInput()[[input$yvar]] ~ datasetInput()[[input$xvar]], ratio = 1, alternative = "two.sided", conf.level = 0.95,)
@@ -173,8 +174,8 @@ shinyServer(function(input, output) {
 				return("chisq")}#CHISQ
 			if (range(table(datasetInput()[[input$yvar]], datasetInput()[[input$xvar]]))[1] <= 5) {	
 				return("fisher")}#FISHER
-			}
-		return("none")
+			}}
+	else {return("none")}
 	})
 	
 
@@ -182,10 +183,16 @@ shinyServer(function(input, output) {
 	
 	output$TestSettings <- renderUI({
 		CurrentTestType <- TestType()
-		if (CurrentTestType == "t") {invisible()}
+		if (CurrentTestType == "t") {tagList(
+			checkboxInput("Paired", "Paired data (before/after)", FALSE)
+			)}
 		else if (CurrentTestType == "wilcox") {invisible()}
 		else if (CurrentTestType == "linreg") {invisible()}
-		else if (CurrentTestType == "pearson") {invisible()}
+		else if (CurrentTestType == "pearson") {tagList(
+			checkboxInput("Linear", "The relationship between the data is linear (the plot displays a line, not a curve)", TRUE),
+			checkboxInput("Continuous", "None of the variables is ordinal (like ranking: 1st, 2nd, etc.)", TRUE),
+			checkboxInput("Outliers", "There are no outliers in the data", TRUE)
+			)}
 		else if (CurrentTestType == "kendall") {invisible()}
 		else if (CurrentTestType == "chisq") {invisible()}
 		else if (CurrentTestType == "fisher") {invisible()}
@@ -202,7 +209,7 @@ shinyServer(function(input, output) {
 			output$TestDescription <- renderText({
 			"The assumptions required for a t-test (normal distribution of variables, variance) seem to be fulfilled.\nHowever, you need to verify whether your data is a random representative selection from the whole data (or the whole data)." 
 			 })
-			results <- t.test(datasetInput()[[input$yvar]] ~ datasetInput()[[input$xvar]])
+			results <- t.test(datasetInput()[[input$yvar]] ~ datasetInput()[[input$xvar]], paired=input$Paired)
 			output$Signalert <- renderText({
 				ifelse(results$p.value<=0.05, "significant", "not significant")
 			})
@@ -227,7 +234,7 @@ shinyServer(function(input, output) {
 		
         # linear regression for numeric-categorial (more levels)
         if (CurrentTestType  == "linreg"){
-			output$TestDescription <- renderText("Description of linear regression")
+			output$TestDescription <- renderText({"Linear regression was selected for the type of variables chosen"})
 			results <- summary(lm(datasetInput()[[input$yvar]] ~ datasetInput()[[input$xvar]]))
 			pvalue <- pf(results$fstatistic[1], results$fstatistic[2], results$fstatistic[3], lower.tail =F)
 			output$Signalert <- renderText({
@@ -240,17 +247,29 @@ shinyServer(function(input, output) {
 		
         # correlation test for numeric-numeric: if parameters fulfilled, do Pearson-r, if not, do Kendall-tau
         if (CurrentTestType  == "pearson") {
-			output$TestDescription <- renderText("Description of Pearson-r")          
-			results <- cor.test(datasetInput()[[input$yvar]], datasetInput()[[input$xvar]], method="pearson")
-			output$Signalert <- renderText({
-				ifelse(results$p.value<=0.05, "significant", "not significant")
-				})
-			output$Pvalue <- renderText({
-				paste("p ", ifelse(results$p.value<0.001, "< 0.001", paste("= ", (round(results$p.value,3)), sep="")), sep="")
-				})
+			output$TestDescription <- renderText({"Automatically tested assumptions made by Pearson's r are met. Some assumptions need to be verified manually."})
+			if (input$Linear==TRUE & input$Continuous==TRUE & input$Outliers==TRUE){
+				results <- cor.test(datasetInput()[[input$yvar]], datasetInput()[[input$xvar]], method="pearson")}
+			else if (input$Outliers==TRUE & input$Linear==FALSE | input$Continuous==FALSE){
+				results <- cor.test(datasetInput()[[input$yvar]], datasetInput()[[input$xvar]], method="spearman")}
+			else {
+				results <- "none"}
+			
+			if (results != "none"){
+				output$Signalert <- renderText({
+					ifelse(results$p.value<=0.05, "significant", "not significant")
+					})
+				output$Pvalue <- renderText({
+					paste("p ", ifelse(results$p.value<0.001, "< 0.001", paste("= ", (round(results$p.value,3)), sep="")), sep="")
+					})
+				}
+			else {
+				output$Signalert <- renderText({"Testing not possible"})
+				output$Pvalue <- renderText({"Please remove outliers before uploading data."})
+				}
 			}
 		if (CurrentTestType  == "kendall") {
-			output$TestDescription <- renderText("Description of Kendall-tau")
+			output$TestDescription <- renderText({"Automatically tested assumptions made by Pearson's r are not met. Measuring by Kendall's tau"})
 			results <- cor.test(datasetInput()[[input$yvar]], datasetInput()[[input$xvar]], method="kendall")
 			output$Signalert <- renderText({
 				ifelse(results$p.value<=0.05, "significant", "not significant")
@@ -262,7 +281,7 @@ shinyServer(function(input, output) {
         
         # categorial-categorial: if parameters fulfilled, do a chi square test, if not do fisher's exact
         if (CurrentTestType  == "chisq"){
-			output$TestDescription <- renderText("Description of chisq")	
+			output$TestDescription <- renderText({"Assumptions of chi-squared test are met."})	
 			results <- chisq.test(table(datasetInput()[[input$yvar]], datasetInput()[[input$xvar]]))
 			output$Signalert <- renderText({
 				ifelse(results$p.value<=0.05, "significant", "not significant")
@@ -272,7 +291,7 @@ shinyServer(function(input, output) {
 				})
 			}
 		if (CurrentTestType  == "fisher") {
-			output$TestDescription <- renderText("Description of fisher")		
+			output$TestDescription <- renderText({"Assumptions of chi-squared test are not met. Performing Fisher's exact test instead."})		
 			results <- fisher.test(table(datasetInput()[[input$yvar]], datasetInput()[[input$xvar]]))
 			output$Signalert <- renderText({
 				ifelse(results$p.value<=0.05, "significant", "not significant")
@@ -281,8 +300,15 @@ shinyServer(function(input, output) {
 				paste("p ", ifelse(results$p.value<0.001, "< 0.001", paste("= ", (round(results$p.value,3)), sep="")), sep="")
 				})
 			}
+			
+		if (CurrentTestType  == "none") {
+			output$TestDescription <- renderText({"There is currently no test for this combination of variables"})		
+			output$Signalert <- renderText({""})
+			output$Pvalue <- renderText({""})
+			}
         return(results)
 		}
+		
     })
 
     output$Testresults <- renderPrint({
