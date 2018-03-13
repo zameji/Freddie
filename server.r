@@ -1,5 +1,6 @@
 library(shiny)
 library(lmtest)
+library(ggplot2)
 
 shinyServer(function(input, output) {
     
@@ -53,7 +54,7 @@ shinyServer(function(input, output) {
 
     output$Ysettings <- renderUI({
 	if(is.numeric(datasetInput()[[input$yvar]]) != TRUE) {invisible()} else {tagList(
-    		sliderInput("inYSlider", "Range of values in histogram", min=range(datasetInput()[[input$yvar]])[1], max=range(datasetInput()[[input$yvar]])[2], value=range(datasetInput()[[input$yvar]])),
+    	sliderInput("inYSlider", "Range of values in histogram", min=range(datasetInput()[[input$yvar]])[1], max=range(datasetInput()[[input$yvar]])[2], value=range(datasetInput()[[input$yvar]])),
 		sliderInput("inYBinSlider", "Number of bars displayed in histogram", min=5, max=25, value=10)
 
 			)}
@@ -94,30 +95,53 @@ shinyServer(function(input, output) {
       if (!(is.null(PlotType()))){
         # create a boxplot if y variable is numeric and x variable is categorical
         if (PlotType()=="box plot:"){
-          boxplot(datasetInput()[[input$yvar]] ~ datasetInput()[[input$xvar]],
-                  xlab=input$xvar,
-                  ylab=input$yvar,
-                  main = input$titleInput,
-                  notch=input$notchCheck)
+			outPlot <- ggplot(datasetInput(), aes(datasetInput()[[input$xvar]], datasetInput()[[input$yvar]])) +
+				geom_boxplot(notch=input$notchCheck) +
+				scale_x_discrete(name=input$xvar) + 
+				scale_y_continuous(name=input$yvar)+
+				ggtitle(input$titleInput)+
+				theme_bw()+
+				theme(plot.title = element_text(hjust=0.5, face="bold", size=14))
+			
+			return(outPlot)
+			
         }
         # create a scatterplot if y variable is numeric and x variable is numeric
         if (PlotType()=="scatter plot:"){
-          plot(datasetInput()[[input$yvar]], datasetInput()[[input$xvar]],
-               xlab=input$xvar,
-               ylab=input$yvar,
-                  main = input$titleInput)
-          if (input$regrCheck){
-            abline(lm(datasetInput()[[input$yvar]]~datasetInput()[[input$xvar]]))
-          }
+			outPlot <- ggplot(datasetInput(), aes(datasetInput()[[input$xvar]], datasetInput()[[input$yvar]])) +
+				geom_point() +
+				scale_x_continuous(name=input$xvar) + 
+				scale_y_continuous(name=input$yvar)+
+				ggtitle(input$titleInput)+
+				theme_bw()+
+				theme(plot.title = element_text(hjust=0.5, face="bold", size=14))
+			
+			if (input$regrCheck==TRUE){
+				outPlot <- outPlot + geom_smooth(method=lm, se=input$regrSE)
+				}
+			return(outPlot)		
+
         }
         # create a barplot if y variable is categorical and x variable is categorical
         if (PlotType()=="bar plot:"){
-          barplot(dataobject(),
-                  xlab = input$xvar,
-                  ylab = input$yvar,
-                  main = input$titleInput,
-                  beside = input$besideCheck,
-                  legend = input$leg)
+			outPlot <- ggplot(datasetInput(), aes(datasetInput()[[input$xvar]], fill=datasetInput()[[input$yvar]])) +
+				scale_x_discrete(name=input$xvar) + 
+				scale_fill_discrete(name = input$yvar) +
+				ggtitle(input$titleInput)+
+				theme_bw()+
+				theme(plot.title = element_text(hjust=0.5, face="bold", size=14))
+			
+			if (input$besideCheck==TRUE){
+				outPlot <- outPlot + geom_bar(position=position_dodge())
+				}	
+			else {outPlot <- outPlot + geom_bar()}
+			if (input$leg==TRUE){
+				outPlot <- outPlot + theme(legend.position="right")
+				}	
+			else {outPlot <- outPlot + theme(legend.position="none")}			
+			
+			return(outPlot)
+			
         }
       }
     }
@@ -186,7 +210,9 @@ shinyServer(function(input, output) {
 		if (CurrentTestType == "t") {tagList(
 			checkboxInput("Paired", "Paired data (before/after)", FALSE)
 			)}
-		else if (CurrentTestType == "wilcox") {invisible()}
+		else if (CurrentTestType == "wilcox") {tagList(
+			checkboxInput("Paired", "Paired data (before/after)", FALSE)
+			)}
 		else if (CurrentTestType == "linreg") {invisible()}
 		else if (CurrentTestType == "pearson") {tagList(
 			checkboxInput("Linear", "The relationship between the data is linear (the plot displays a line, not a curve)", TRUE),
@@ -207,7 +233,7 @@ shinyServer(function(input, output) {
         
 		if (CurrentTestType  == "t") {
 			output$TestDescription <- renderText({
-			"The assumptions required for a t-test (normal distribution of variables, variance) seem to be fulfilled.\nHowever, you need to verify whether your data is a random representative selection from the whole data (or the whole data)." 
+			"The assumptions required for a t-test (normal distribution of variables, variance) seem to be fulfilled. However, you need to verify whether your data is a random representative selection from the whole data (or the whole data)." 
 			 })
 			results <- t.test(datasetInput()[[input$yvar]] ~ datasetInput()[[input$xvar]], paired=input$Paired)
 			output$Signalert <- renderText({
@@ -221,9 +247,9 @@ shinyServer(function(input, output) {
 		# t-test parameters not fulfilled
 		if (CurrentTestType  == "wilcox") {
 			output$TestDescription <- renderText({
-				"Some of the assumptions required for a t-test (normal distribution of variables, variance) seem not to be fulfilled. A non-parametric test will thus be performed." 
+				"Some of the assumptions required for a t-test (normal distribution of variables, variance) seem not fulfilled. A non-parametric test will thus be performed." 
 				})
-			results <- wilcox.test(datasetInput()[[input$yvar]] ~ datasetInput()[[input$xvar]])
+			results <- wilcox.test(datasetInput()[[input$yvar]] ~ datasetInput()[[input$xvar]], paired=input$Paired)
 			output$Signalert <- renderText({
 				ifelse(results$p.value<=0.05, "significant", "not significant")
 				})

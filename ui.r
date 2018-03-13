@@ -85,8 +85,10 @@ shinyUI(fluidPage(
 								),
 							conditionalPanel(condition = "output.PlotType=='scatter plot:'",
 								checkboxInput(inputId='regrCheck', label='Regression line', FALSE)
+								),
+							conditionalPanel(condition = "output.PlotType=='scatter plot:'",
+								checkboxInput(inputId='regrSE', label='Display standard error', TRUE)
 								)
-
 							)
 						)
 					),
