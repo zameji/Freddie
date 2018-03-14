@@ -73,28 +73,12 @@ shinyUI(fluidPage(
 								)
 							),
 						column(6,
-							conditionalPanel(condition = "output.PlotType=='bar plot:'",
-								checkboxInput(inputId='leg', label='Legend', TRUE),
-								checkboxInput(inputId='besideCheck', label='Do not stack', FALSE),
-								radioButtons(inputId='propCheck',
-								label='',
-								choices = c("absolute", "relative"), selected = "absolute")
-								),
-							conditionalPanel(condition = "output.PlotType=='box plot:'",
-								checkboxInput(inputId='notchCheck', label='Notches', FALSE)
-								),
-							conditionalPanel(condition = "output.PlotType=='scatter plot:'",
-								checkboxInput(inputId='regrCheck', label='Regression line', FALSE)
-								),
-							conditionalPanel(condition = "output.PlotType=='scatter plot:'",
-								checkboxInput(inputId='regrSE', label='Display standard error', TRUE)
-								)
+							uiOutput("PlotSettings")
 							)
 						)
 					),
 				tabPanel("Statistic testing", 
 					p(textOutput("TestDescription")),
-					h2("test settings:"),
 					fluidRow(column(1),
 						column(11, uiOutput("TestSettings"))),
                     h2("test results:"),

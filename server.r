@@ -1,6 +1,7 @@
 library(shiny)
 library(lmtest)
 library(ggplot2)
+library(Cairo)
 
 shinyServer(function(input, output) {
     
@@ -91,6 +92,26 @@ shinyServer(function(input, output) {
     })
     output$TEST <- renderTable(datatable())
     
+	output$PlotSettings <- renderUI({
+		if (PlotType()=="bar plot:"){tagList(
+				checkboxInput("leg", "Legend", TRUE),
+				checkboxInput("besideCheck", "Do not stack", FALSE),
+				radioButtons("propCheck", "",	choices = c("absolute", "relative"), selected = "absolute")
+				)
+			}
+		else if (PlotType()=="box plot:"){tagList(
+				checkboxInput("notchCheck", "Notches", FALSE)
+				)
+			}
+		else if (PlotType()=="scatter plot:"){tagList(
+				checkboxInput("regrCheck", "Regression line", FALSE),
+				checkboxInput("regrSE", "Display standard error", FALSE)
+				)
+			}
+		 
+		else {invisible()}
+	})	
+	
     Plotcode <- function(){
       if (!(is.null(PlotType()))){
         # create a boxplot if y variable is numeric and x variable is categorical
@@ -134,7 +155,7 @@ shinyServer(function(input, output) {
 			if (input$besideCheck==TRUE){
 				outPlot <- outPlot + geom_bar(position=position_dodge())
 				}	
-			else {outPlot <- outPlot + geom_bar()}
+			else {outPlot <- outPlot + geom_bar(position=position_stack())}
 			if (input$leg==TRUE){
 				outPlot <- outPlot + theme(legend.position="right")
 				}	
@@ -146,6 +167,8 @@ shinyServer(function(input, output) {
       }
     }
     
+	
+	
     output$Plot <- renderPlot({
       Plotcode()
     })
@@ -208,18 +231,21 @@ shinyServer(function(input, output) {
 	output$TestSettings <- renderUI({
 		CurrentTestType <- TestType()
 		if (CurrentTestType == "t") {tagList(
-			checkboxInput("Paired", "Paired data (before/after)", FALSE)
+			h2("test settings:"),
+			checkboxInput("Paired", "Paired data (for example before/after an experiment)", FALSE)
 			)}
 		else if (CurrentTestType == "wilcox") {tagList(
-			checkboxInput("Paired", "Paired data (before/after)", FALSE)
+			h2("test settings:"),
+			checkboxInput("Paired", "Paired data (for example before/after an experiment)", FALSE)
 			)}
 		else if (CurrentTestType == "linreg") {invisible()}
 		else if (CurrentTestType == "pearson") {tagList(
+			h2("test settings:"),
 			checkboxInput("Linear", "The relationship between the data is linear (the plot displays a line, not a curve)", TRUE),
 			checkboxInput("Continuous", "None of the variables is ordinal (like ranking: 1st, 2nd, etc.)", TRUE),
 			checkboxInput("Outliers", "There are no outliers in the data", TRUE)
 			)}
-		else if (CurrentTestType == "kendall") {invisible()}
+		else if (CurrentTestType == "spearman") {invisible()}
 		else if (CurrentTestType == "chisq") {invisible()}
 		else if (CurrentTestType == "fisher") {invisible()}
 		else {invisible()}
@@ -294,9 +320,9 @@ shinyServer(function(input, output) {
 				output$Pvalue <- renderText({"Please remove outliers before uploading data."})
 				}
 			}
-		if (CurrentTestType  == "kendall") {
-			output$TestDescription <- renderText({"Automatically tested assumptions made by Pearson's r are not met. Measuring by Kendall's tau"})
-			results <- cor.test(datasetInput()[[input$yvar]], datasetInput()[[input$xvar]], method="kendall")
+		if (CurrentTestType  == "spearman") {
+			output$TestDescription <- renderText({"Automatically tested assumptions made by Pearson's r are not met. Measuring by Spearman's rho"})
+			results <- cor.test(datasetInput()[[input$yvar]], datasetInput()[[input$xvar]], method="spearman")
 			output$Signalert <- renderText({
 				ifelse(results$p.value<=0.05, "significant", "not significant")
 				})
