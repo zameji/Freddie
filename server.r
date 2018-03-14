@@ -1,7 +1,6 @@
 library(shiny)
 library(lmtest)
 library(ggplot2)
-library(Cairo)
 
 shinyServer(function(input, output) {
     
@@ -150,6 +149,7 @@ shinyServer(function(input, output) {
 				scale_fill_discrete(name = input$yvar) +
 				ggtitle(input$titleInput)+
 				theme_bw()+
+				scale_fill_grey(start=0, end=0.9) +
 				theme(plot.title = element_text(hjust=0.5, face="bold", size=14))
 			
 			if (input$besideCheck==TRUE){
