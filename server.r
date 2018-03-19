@@ -214,7 +214,7 @@ shinyServer(function(input, output) {
 			if (range(normality)[1] >= 0.05 & scedasticity$p.value >= 0.05) {
 				return("pearson")}#PEARSON CORELATION
 			if (range(normality)[1] < 0.05 | scedasticity$p.value <0.05) {
-				return("kendall")}#KENDALL
+				return("spearman")}#KENDALL
 			}
         if (PlotType()=="bar plot:"){			
 			if (range(table(datasetInput()[[input$yvar]], datasetInput()[[input$xvar]]))[1] > 5) {	
@@ -300,12 +300,14 @@ shinyServer(function(input, output) {
         # correlation test for numeric-numeric: if parameters fulfilled, do Pearson-r, if not, do Kendall-tau
         if (CurrentTestType  == "pearson") {
 			output$TestDescription <- renderText({"Automatically tested assumptions made by Pearson's r are met. Some assumptions need to be verified manually."})
+			
 			if (input$Linear==TRUE & input$Continuous==TRUE & input$Outliers==TRUE){
-				results <- cor.test(datasetInput()[[input$yvar]], datasetInput()[[input$xvar]], method="pearson")}
+				results <- cor.test(datasetInput()[[input$yvar]], datasetInput()[[input$xvar]], method="pearson")
+				}
 			else if (input$Outliers==TRUE & input$Linear==FALSE | input$Continuous==FALSE){
-				results <- cor.test(datasetInput()[[input$yvar]], datasetInput()[[input$xvar]], method="spearman")}
-			else {
-				results <- "none"}
+				results <- cor.test(datasetInput()[[input$yvar]], datasetInput()[[input$xvar]], method="spearman")
+				}
+			else {results <- "none"}
 			
 			if (results != "none"){
 				output$Signalert <- renderText({
