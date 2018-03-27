@@ -78,7 +78,7 @@ shinyUI(fluidPage(
 						)
 					),
 				tabPanel("Statistic testing", 
-					p(textOutput("TestDescription")),
+					p(htmlOutput("TestDescription")),
 					fluidRow(column(1),
 						column(11, uiOutput("TestSettings"))),
                     h2("test results:"),

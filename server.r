@@ -56,7 +56,6 @@ shinyServer(function(input, output) {
 	if(is.numeric(datasetInput()[[input$yvar]]) != TRUE) {invisible()} else {tagList(
     	sliderInput("inYSlider", "Range of values in histogram", min=range(datasetInput()[[input$yvar]])[1], max=range(datasetInput()[[input$yvar]])[2], value=range(datasetInput()[[input$yvar]])),
 		sliderInput("inYBinSlider", "Number of bars displayed in histogram", min=5, max=25, value=10)
-
 			)}
 	})
 
@@ -89,7 +88,6 @@ shinyServer(function(input, output) {
         datatabletemp
       }
     })
-    output$TEST <- renderTable(datatable())
     
 	output$PlotSettings <- renderUI({
 		if (PlotType()=="bar plot:"){tagList(
@@ -214,7 +212,7 @@ shinyServer(function(input, output) {
 			if (range(normality)[1] >= 0.05 & scedasticity$p.value >= 0.05) {
 				return("pearson")}#PEARSON CORELATION
 			if (range(normality)[1] < 0.05 | scedasticity$p.value <0.05) {
-				return("spearman")}#KENDALL
+				return("spearman")}#SPEARMAN
 			}
         if (PlotType()=="bar plot:"){			
 			if (range(table(datasetInput()[[input$yvar]], datasetInput()[[input$xvar]]))[1] > 5) {	
@@ -232,11 +230,13 @@ shinyServer(function(input, output) {
 		CurrentTestType <- TestType()
 		if (CurrentTestType == "t") {tagList(
 			h2("test settings:"),
-			checkboxInput("Paired", "Paired data (for example before/after an experiment)", FALSE)
+			checkboxInput("Paired", "Paired data (for example before/after an experiment)", FALSE),
+			checkboxInput("Independent", "Independent data collection (the two samples are independent on each other)", TRUE)
 			)}
 		else if (CurrentTestType == "wilcox") {tagList(
 			h2("test settings:"),
-			checkboxInput("Paired", "Paired data (for example before/after an experiment)", FALSE)
+			checkboxInput("Paired", "Paired data (for example before/after an experiment)", FALSE),
+			checkboxInput("Independent", "Independent data collection (the two samples are independent on each other)", TRUE)
 			)}
 		else if (CurrentTestType == "linreg") {invisible()}
 		else if (CurrentTestType == "pearson") {tagList(
@@ -245,7 +245,10 @@ shinyServer(function(input, output) {
 			checkboxInput("Continuous", "None of the variables is ordinal (like ranking: 1st, 2nd, etc.)", TRUE),
 			checkboxInput("Outliers", "There are no outliers in the data", TRUE)
 			)}
-		else if (CurrentTestType == "spearman") {invisible()}
+		else if (CurrentTestType == "spearman") {tagList(
+			h2("test settings:"),
+			checkboxInput("Outliers", "There are no outliers in the data", TRUE)
+			)}
 		else if (CurrentTestType == "chisq") {invisible()}
 		else if (CurrentTestType == "fisher") {invisible()}
 		else {invisible()}
@@ -258,35 +261,69 @@ shinyServer(function(input, output) {
         # t-test logic for numeric-categorial (two levels): if parameters fulfilled, do t-test, if not, do Wilcoxon-Mann-Whitney
         
 		if (CurrentTestType  == "t") {
-			output$TestDescription <- renderText({
-			"The assumptions required for a t-test (normal distribution of variables, variance) seem to be fulfilled. However, you need to verify whether your data is a random representative selection from the whole data (or the whole data)." 
+			output$TestDescription <- renderUI({
+				HTML(
+				"The variables you selected could be used for testing through a <b>two-sample t-test</b>.
+				This test takes the two groups in your data (e.g. male/female) and compares their values.
+				It determines the probability, with which the population from which you took the samples have different means.
+				For example, if you study the number of different words (type count) in essays by beginner and advanced students, it will tell you - on the base of your samples - how likely is is, that beginner and advanced students use the same number of types in their essays.<br/><br/>
+				If your values are <b>paired</b> - for example they contain the test scores of a group of students before a class and after it, select the corresponding option.
+				You need to verify that the sampling was <b>independent</b>, e.g. you did not ask participants in group A to bring their siblings as participants in group B.
+				If this was not the case, the result presented here is unreliable.")
 			 })
-			results <- t.test(datasetInput()[[input$yvar]] ~ datasetInput()[[input$xvar]], paired=input$Paired)
-			output$Signalert <- renderText({
-				ifelse(results$p.value<=0.05, "significant", "not significant")
-			})
-			output$Pvalue <- renderText({
-				paste("p ", ifelse(results$p.value<0.001, "< 0.001", paste("= ", (round(results$p.value,3)), sep="")), sep="")
-			})
+			if (input$Independent==TRUE){results <- t.test(datasetInput()[[input$yvar]] ~ datasetInput()[[input$xvar]], paired=input$Paired)}
+			else {results <- "dependent"}
+			
+			if (results != "dependent"){
+				output$Signalert <- renderText({
+					ifelse(results$p.value<=0.05, "significant", "not significant")
+					})
+				output$Pvalue <- renderText({
+					paste("p ", ifelse(results$p.value<0.001, "< 0.001", paste("= ", (round(results$p.value,3)), sep="")), sep="")
+					})
+				}
+			else {
+				output$Signalert <- renderText({"Testing not possible"})
+				output$Pvalue <- renderText({"There is currently no test for clustered sampling in FREDDIE Shiny. If you think support for your variable type is necessary, please contact jiri.zamecnik@anglistik.uni-freiburg.de"})
+				}
 		}
 
 		# t-test parameters not fulfilled
 		if (CurrentTestType  == "wilcox") {
-			output$TestDescription <- renderText({
-				"Some of the assumptions required for a t-test (normal distribution of variables, variance) seem not fulfilled. A non-parametric test will thus be performed." 
+			output$TestDescription <- renderUI({
+				HTML(
+				"The variables you selected could be used for testing through a <b>Wilcoxon rank-sum test</b>.
+				This test takes the two groups in your data (e.g. male/female) and compares their values.
+				It determines the probability, with which the population from which you took the samples have different means.
+				For example, if you study the number of different words (type count) in essays by beginner and advanced students, it will tell you - on the base of your samples - how likely is is, that beginner and advanced students use the same number of types in their essays.<br/><br/>
+				If your values are <b>paired</b> - for example they contain the test scores of a group of students before a class and after it, select the corresponding option.
+				You need to verify that the sampling was <b>independent</b>, e.g. you did not ask participants in group A to bring their siblings as participants in group B.
+				If this was not the case, the result presented here is unreliable.")
 				})
-			results <- wilcox.test(datasetInput()[[input$yvar]] ~ datasetInput()[[input$xvar]], paired=input$Paired)
-			output$Signalert <- renderText({
-				ifelse(results$p.value<=0.05, "significant", "not significant")
-				})
-			output$Pvalue <- renderText({
-				paste("p ", ifelse(results$p.value<0.001, "< 0.001", paste("= ", (round(results$p.value,3)), sep="")), sep="")
-			})
+			if (input$Independent==TRUE){results <- wilcox.test(datasetInput()[[input$yvar]] ~ datasetInput()[[input$xvar]], paired=input$Paired)}
+			else {results <- "dependent"}
+			
+			if (results != "dependent"){
+				output$Signalert <- renderText({
+					ifelse(results$p.value<=0.05, "significant", "not significant")
+					})
+				output$Pvalue <- renderText({
+					paste("p ", ifelse(results$p.value<0.001, "< 0.001", paste("= ", (round(results$p.value,3)), sep="")), sep="")
+					})
+				}
+			else {
+				output$Signalert <- renderText({"Testing not possible"})
+				output$Pvalue <- renderText({"There is currently no test for clustered sampling in FREDDIE Shiny. If you think support for your variable type is necessary, please contact jiri.zamecnik@anglistik.uni-freiburg.de"})
+				}
 		}
 		
         # linear regression for numeric-categorial (more levels)
         if (CurrentTestType  == "linreg"){
-			output$TestDescription <- renderText({"Linear regression was selected for the type of variables chosen"})
+			output$TestDescription <- renderUI({
+				HTML(
+				"You selected a combination of variables that does not allow for a simple test. Because of that, <b>linear regression</b> a slightly more advanced model is used.
+				If you do not understand the output presented below, it would be safer not to use such variables for statistic testing.")
+				})
 			results <- summary(lm(datasetInput()[[input$yvar]] ~ datasetInput()[[input$xvar]]))
 			pvalue <- pf(results$fstatistic[1], results$fstatistic[2], results$fstatistic[3], lower.tail =F)
 			output$Signalert <- renderText({
@@ -299,8 +336,21 @@ shinyServer(function(input, output) {
 		
         # correlation test for numeric-numeric: if parameters fulfilled, do Pearson-r, if not, do Kendall-tau
         if (CurrentTestType  == "pearson") {
-			output$TestDescription <- renderText({"Automatically tested assumptions made by Pearson's r are met. Some assumptions need to be verified manually."})
-			
+			output$TestDescription <- renderUI({
+				HTML(
+				"The variables you selected could be used for testing through a <b>correlation test</b>.
+				This test takes the two groups of 'scores' (e.g. age/first formant) and compares their values.
+				It determines the strength of the relationship between them - how well does knowing the value of X allow us to predict Y - and determines whether the relationship may be purely 
+				coincidental (e.g. if you have few examples).<br/><br/>
+				Some of the prerequisites of this test were tested automatically by FREDDIE Shiny (normality, heteroscedasticity), but some of them need to be decided by you.<br/>
+				<ul>
+					<li>Is the relationship between the two variables approximately linear? (if you look at their plot, do the datapoints plot a line and not a curve) </li>
+					<li>Are both of the variables continuous? (none of them is a ranking, like 1st, 2nd etc.</li>
+					<li>Are there any outliers in the data? (no values so extreme that they are unrealistic or influencing the whole data too much)</li>
+				</ul>
+				Depending on your answers, a fitting correlation method will be used.")
+				})
+				
 			if (input$Linear==TRUE & input$Continuous==TRUE & input$Outliers==TRUE){
 				results <- cor.test(datasetInput()[[input$yvar]], datasetInput()[[input$xvar]], method="pearson")
 				}
@@ -323,19 +373,46 @@ shinyServer(function(input, output) {
 				}
 			}
 		if (CurrentTestType  == "spearman") {
-			output$TestDescription <- renderText({"Automatically tested assumptions made by Pearson's r are not met. Measuring by Spearman's rho"})
-			results <- cor.test(datasetInput()[[input$yvar]], datasetInput()[[input$xvar]], method="spearman")
-			output$Signalert <- renderText({
-				ifelse(results$p.value<=0.05, "significant", "not significant")
+			output$TestDescription <- renderUI({
+				HTML(
+				"The variables you selected could be used for testing through a <b>correlation test</b>.
+				This test takes the two groups of 'scores' (e.g. age/first formant) and compares their values.
+				It determines the strength of the relationship between them - how well does knowing the value of X allow us to predict Y - and determines whether the relationship may be purely 
+				coincidental (e.g. if you have few examples).<br/><br/>
+				Some of the prerequisites of this test were tested automatically by FREDDIE Shiny (normality, heteroscedasticity), but some of them need to be decided by you.<br/>
+				<ul>
+					<li>Are there any outliers in the data? (no values so extreme that they are unrealistic or influencing the whole data too much)</li>
+				</ul>
+				Depending on your answers, a fitting correlation method will be used.")
 				})
-			output$Pvalue <- renderText({
-				paste("p ", ifelse(results$p.value<0.001, "< 0.001", paste("= ", (round(results$p.value,3)), sep="")), sep="")
-				})
+			if (input$Outliers==TRUE) {results <- cor.test(datasetInput()[[input$yvar]], datasetInput()[[input$xvar]], method="spearman")}
+			else {results <- "none"}
+
+			if (results != "none"){
+				output$Signalert <- renderText({
+					ifelse(results$p.value<=0.05, "significant", "not significant")
+					})
+				output$Pvalue <- renderText({
+					paste("p ", ifelse(results$p.value<0.001, "< 0.001", paste("= ", (round(results$p.value,3)), sep="")), sep="")
+					})
+				}
+			else {
+				output$Signalert <- renderText({"Testing not possible"})
+				output$Pvalue <- renderText({"Please remove outliers before uploading data."})
+				}			
+			
 			}
         
         # categorial-categorial: if parameters fulfilled, do a chi square test, if not do fisher's exact
         if (CurrentTestType  == "chisq"){
-			output$TestDescription <- renderText({"Assumptions of chi-squared test are met."})	
+			output$TestDescription <- renderUI({
+				HTML(
+				"The variables you selected could be used for testing through a <b>chi-squared test</b>.
+				This test takes the counts of the various combinations in your data (e.g. sex/education) and compares their distribution.
+				It determines whether there is a significant difference between the expected and observed frequencies. For example if you want to see whether the various education levels are represented approximately equally with respect to the individual genders in your data,
+				you could use a chi-squared test to see whether this is the case or not.<br><br/>
+				FREDDIE Shiny has atomatically checked the requirements that the chi-squared test has on your data.")
+				})
 			results <- chisq.test(table(datasetInput()[[input$yvar]], datasetInput()[[input$xvar]]))
 			output$Signalert <- renderText({
 				ifelse(results$p.value<=0.05, "significant", "not significant")
@@ -345,7 +422,14 @@ shinyServer(function(input, output) {
 				})
 			}
 		if (CurrentTestType  == "fisher") {
-			output$TestDescription <- renderText({"Assumptions of chi-squared test are not met. Performing Fisher's exact test instead."})		
+			output$TestDescription <- renderUI({
+				HTML(
+				"The variables you selected could be used for testing through a chi-squared test.
+				This test takes the counts of the various combinations in your data (e.g. sex/education) and compares their distribution.
+				It determines whether there is a significant difference between the expected and observed frequencies. For example if you want to see whether the various education levels are represented approximately equally with respect to the individual genders in your data,
+				you could use a chi-squared test to see whether this is the case or not.<br><br/>
+				FREDDIE Shiny has atomatically checked the requirements that the chi-squared test has on your data. Some of them were not fulfilled, which is why <b>Fisher's exact test</b> is performed instead")
+				})	
 			results <- fisher.test(table(datasetInput()[[input$yvar]], datasetInput()[[input$xvar]]))
 			output$Signalert <- renderText({
 				ifelse(results$p.value<=0.05, "significant", "not significant")
@@ -356,7 +440,11 @@ shinyServer(function(input, output) {
 			}
 			
 		if (CurrentTestType  == "none") {
-			output$TestDescription <- renderText({"There is currently no test for this combination of variables"})		
+			output$TestDescription <- renderUI({
+				HTML(
+				"There is currently no test for the variables you selected. If you think support for your variable type is necessary, please contact us <a href='mailto: jiri.zamecnik@anglistik.uni-freiburg.de'>jiri.zamecnik@anglistik.uni-freiburg.de</a>.
+					")
+				})
 			output$Signalert <- renderText({""})
 			output$Pvalue <- renderText({""})
 			}
