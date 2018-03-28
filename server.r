@@ -134,7 +134,7 @@ shinyServer(function(input, output) {
 		if (PlotType()=="bar plot:"){tagList(
 				checkboxInput("leg", "Legend", TRUE),
 				checkboxInput("besideCheck", "Do not stack", FALSE),
-				radioButtons("propCheck", "",	choices = c("absolute", "relative"), selected = "absolute")
+				# radioButtons("propCheck", "",	choices = c("absolute", "relative"), selected = "absolute")
 				)
 			}
 		else if (PlotType()=="box plot:"){tagList(
@@ -175,15 +175,15 @@ shinyServer(function(input, output) {
 				}		
 		})
 		
-    dataobject <- reactive({
-      if (PlotType()=="bar plot:"){
-        datatabletemp <- table(datasetInput()[[input$yvar]], datasetInput()[[input$xvar]])
-        if(input$propCheck=="relative"){
-          datatabletemp <- prop.table(datatabletemp, 2)
-        }
-        datatabletemp
-      }
-    })	
+    # dataobject <- reactive({
+      # if (PlotType()=="bar plot:"){
+        # datatabletemp <- table(datasetInput()[[input$yvar]], datasetInput()[[input$xvar]])
+        # if(input$propCheck=="relative"){
+          # datatabletemp <- prop.table(datatabletemp, 2)
+        # }
+        # datatabletemp
+      # }
+    # })	
 	
     Plotcode <- function(){
       if (!(is.null(PlotType()))){
