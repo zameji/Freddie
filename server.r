@@ -21,6 +21,8 @@ shinyServer(function(input, output) {
                quote=input$quote)
     })
     
+	vals <- reactiveValues(keeprows=TRUE)
+	
     output$sum <- renderPrint({
       summaryOutput <- summary(datasetInput())
       if(length(summaryOutput)==3){invisible()} else {summaryOutput}
@@ -109,12 +111,40 @@ shinyServer(function(input, output) {
 		else {invisible()}
 	})	
 	
+	output$OutlierFilter <- renderUI({
+		if (PlotType()=="scatter plot:") 
+				{tagList(
+					h2("Outlier removal"),
+					p("Remove outliers (cases that are too extreme to be realistic) by clicking 
+						and dragging a box and then clicking the 'remove' button."),
+					fluidRow(
+						column(6, actionButton("exclude_toggle", "Remove")),
+						column(6, actionButton("exclude_reset", "Reset"))
+						)
+					)
+				}	
+		else if (PlotType()=="box plot:") 
+				{tagList(
+					h2("Outlier removal"),
+					p("Remove outliers (cases that are too extreme to be realistic) by clicking 
+						and dragging a box and then clicking the 'remove' button."),
+					fluidRow(
+						column(6, actionButton("exclude_toggle", "Remove")),
+						column(6, actionButton("exclude_reset", "Reset"))
+						)
+					)
+				}		
+		})
+	
     Plotcode <- function(){
       if (!(is.null(PlotType()))){
         # create a boxplot if y variable is numeric and x variable is categorical
         if (PlotType()=="box plot:"){
-			outPlot <- ggplot(datasetInput(), aes(datasetInput()[[input$xvar]], datasetInput()[[input$yvar]])) +
+			keep    <- datasetInput()[ vals$keeprows, , drop = FALSE]
+			exclude <- datasetInput()[!vals$keeprows, , drop = FALSE]	
+			outPlot <- ggplot(keep, aes(keep[[input$xvar]], keep[[input$yvar]])) +
 				geom_boxplot(notch=input$notchCheck) +
+				geom_point(data = exclude, aes(exclude[[input$xvar]], exclude[[input$yvar]]), shape = 4, color = "black", alpha = 0.25) +
 				scale_x_discrete(name=input$xvar) + 
 				scale_y_continuous(name=input$yvar)+
 				ggtitle(input$titleInput)+
@@ -126,8 +156,12 @@ shinyServer(function(input, output) {
         }
         # create a scatterplot if y variable is numeric and x variable is numeric
         if (PlotType()=="scatter plot:"){
-			outPlot <- ggplot(datasetInput(), aes(datasetInput()[[input$xvar]], datasetInput()[[input$yvar]])) +
+			keep    <- datasetInput()[ vals$keeprows, , drop = FALSE]
+			exclude <- datasetInput()[!vals$keeprows, , drop = FALSE]	
+			
+			outPlot <- ggplot(keep, aes(keep[[input$xvar]], keep[[input$yvar]])) +
 				geom_point() +
+				geom_point(data = exclude, aes(exclude[[input$xvar]], exclude[[input$yvar]]), shape = 4, color = "black", alpha = 0.25) +
 				scale_x_continuous(name=input$xvar) + 
 				scale_y_continuous(name=input$yvar)+
 				ggtitle(input$titleInput)+
@@ -165,8 +199,30 @@ shinyServer(function(input, output) {
       }
     }
     
-	
-	
+	# Toggle points that are clicked
+	observeEvent(input$plot1_click, {
+		res <- nearPoints(datasetInput(), input$plot1_click, xvar=input$xvar, yvar=input$yvar, allRows = TRUE)
+		vals$keeprows <- xor(vals$keeprows, res$selected_)
+	})
+
+	observeEvent(input$exclude_toggle, {
+		res <- brushedPoints(datasetInput(), input$plot1_brush, xvar=input$xvar, yvar=input$yvar, allRows = TRUE)
+		vals$keeprows <- xor(vals$keeprows, res$selected_)
+	})
+
+	# Reset all points
+	observeEvent(input$exclude_reset, {
+		vals$keeprows <- rep(TRUE, nrow(mtcars))
+		})
+		
+	observeEvent(input$xvar, {
+		vals$keeprows <- TRUE
+		})
+
+	observeEvent(input$yvar, {
+		vals$keeprows <- TRUE
+		})
+		
     output$Plot <- renderPlot({
       Plotcode()
     })
@@ -195,29 +251,30 @@ shinyServer(function(input, output) {
 # DETERMINE THE TYPE OF TEST USED   
 	TestType <- reactive({
 	if (!(is.null(PlotType()))){
-		if (PlotType()=="box plot:" & length(levels(datasetInput()[[input$xvar]]))==2 ){
-			normality <- aggregate(formula = datasetInput()[[input$yvar]] ~ datasetInput()[[input$xvar]], FUN = function(x) {y <- shapiro.test(x); c(y$statistic, y$p.value)})
-			variance <- var.test(datasetInput()[[input$yvar]] ~ datasetInput()[[input$xvar]], ratio = 1, alternative = "two.sided", conf.level = 0.95,)
+		keep    <- datasetInput()[ vals$keeprows, , drop = FALSE]
+		if (PlotType()=="box plot:" & length(levels(keep[[input$xvar]]))==2 ){
+			normality <- aggregate(formula = keep[[input$yvar]] ~ keep[[input$xvar]], FUN = function(x) {y <- shapiro.test(x); c(y$statistic, y$p.value)})
+			variance <- var.test(keep[[input$yvar]] ~ keep[[input$xvar]], ratio = 1, alternative = "two.sided", conf.level = 0.95,)
 			if (range(normality[,2][,2])[1] >= 0.05 & variance$p.value >= 0.05){
 				return("t")} #TTEST
 			if (range(normality[,2][,2])[1] < 0.05 | variance$p.value < 0.05) {
 				return("wilcox")}#WILCOX TEST
 			}
-		if (PlotType()=="box plot:" & length(levels(datasetInput()[[input$xvar]]))>2 ){
+		if (PlotType()=="box plot:" & length(levels(keep[[input$xvar]]))>2 ){
 			return("linreg")}#LINEAR REGRESSION
 			
 		if (PlotType()=="scatter plot:"){
-			scedasticity <- bptest(lm(datasetInput()[[input$yvar]] ~ datasetInput()[[input$xvar]]))
-			normality <- lapply(data.frame(datasetInput()[[input$yvar]], datasetInput()[[input$xvar]]) , function(x) {y <- shapiro.test(x); c(y$p.value)})	
+			scedasticity <- bptest(lm(keep[[input$yvar]] ~ keep[[input$xvar]]))
+			normality <- lapply(data.frame(keep[[input$yvar]], keep[[input$xvar]]) , function(x) {y <- shapiro.test(x); c(y$p.value)})	
 			if (range(normality)[1] >= 0.05 & scedasticity$p.value >= 0.05) {
 				return("pearson")}#PEARSON CORELATION
 			if (range(normality)[1] < 0.05 | scedasticity$p.value <0.05) {
 				return("spearman")}#SPEARMAN
 			}
         if (PlotType()=="bar plot:"){			
-			if (range(table(datasetInput()[[input$yvar]], datasetInput()[[input$xvar]]))[1] > 5) {	
+			if (range(table(keep[[input$yvar]], keep[[input$xvar]]))[1] > 5) {	
 				return("chisq")}#CHISQ
-			if (range(table(datasetInput()[[input$yvar]], datasetInput()[[input$xvar]]))[1] <= 5) {	
+			if (range(table(keep[[input$yvar]], keep[[input$xvar]]))[1] <= 5) {	
 				return("fisher")}#FISHER
 			}}
 	else {return("none")}
@@ -257,6 +314,7 @@ shinyServer(function(input, output) {
 ###TESTCODE NEEDS TO BE SPLIT INTO TEST-DEFINING CODE AND TEXT EXECUTING CODE TO AVOID ISSUES WITH RESETTING
     Testcode <- reactive({
       if (!(is.null(PlotType()))){
+		keep    <- datasetInput()[ vals$keeprows, , drop = FALSE]
 	  	CurrentTestType <- TestType()
         # t-test logic for numeric-categorial (two levels): if parameters fulfilled, do t-test, if not, do Wilcoxon-Mann-Whitney
         
@@ -271,7 +329,7 @@ shinyServer(function(input, output) {
 				You need to verify that the sampling was <b>independent</b>, e.g. you did not ask participants in group A to bring their siblings as participants in group B.
 				If this was not the case, the result presented here is unreliable.")
 			 })
-			if (input$Independent==TRUE){results <- t.test(datasetInput()[[input$yvar]] ~ datasetInput()[[input$xvar]], paired=input$Paired)}
+			if (input$Independent==TRUE){results <- t.test(keep[[input$yvar]] ~ keep[[input$xvar]], paired=input$Paired)}
 			else {results <- "dependent"}
 			
 			if (results != "dependent"){
@@ -300,7 +358,7 @@ shinyServer(function(input, output) {
 				You need to verify that the sampling was <b>independent</b>, e.g. you did not ask participants in group A to bring their siblings as participants in group B.
 				If this was not the case, the result presented here is unreliable.")
 				})
-			if (input$Independent==TRUE){results <- wilcox.test(datasetInput()[[input$yvar]] ~ datasetInput()[[input$xvar]], paired=input$Paired)}
+			if (input$Independent==TRUE){results <- wilcox.test(keep[[input$yvar]] ~ keep[[input$xvar]], paired=input$Paired)}
 			else {results <- "dependent"}
 			
 			if (results != "dependent"){
@@ -324,7 +382,7 @@ shinyServer(function(input, output) {
 				"You selected a combination of variables that does not allow for a simple test. Because of that, <b>linear regression</b> a slightly more advanced model is used.
 				If you do not understand the output presented below, it would be safer not to use such variables for statistic testing.")
 				})
-			results <- summary(lm(datasetInput()[[input$yvar]] ~ datasetInput()[[input$xvar]]))
+			results <- summary(lm(keep[[input$yvar]] ~ keep[[input$xvar]]))
 			pvalue <- pf(results$fstatistic[1], results$fstatistic[2], results$fstatistic[3], lower.tail =F)
 			output$Signalert <- renderText({
 				ifelse(pvalue<=0.05, "significant", "not significant")
@@ -352,10 +410,10 @@ shinyServer(function(input, output) {
 				})
 				
 			if (input$Linear==TRUE & input$Continuous==TRUE & input$Outliers==TRUE){
-				results <- cor.test(datasetInput()[[input$yvar]], datasetInput()[[input$xvar]], method="pearson")
+				results <- cor.test(keep[[input$yvar]], keep[[input$xvar]], method="pearson")
 				}
 			else if (input$Outliers==TRUE & input$Linear==FALSE | input$Continuous==FALSE){
-				results <- cor.test(datasetInput()[[input$yvar]], datasetInput()[[input$xvar]], method="spearman")
+				results <- cor.test(keep[[input$yvar]], keep[[input$xvar]], method="spearman")
 				}
 			else {results <- "none"}
 			
@@ -369,7 +427,7 @@ shinyServer(function(input, output) {
 				}
 			else {
 				output$Signalert <- renderText({"Testing not possible"})
-				output$Pvalue <- renderText({"Please remove outliers before uploading data."})
+				output$Pvalue <- renderText({"Please remove outliers in the Plot view."})
 				}
 			}
 		if (CurrentTestType  == "spearman") {
@@ -385,7 +443,7 @@ shinyServer(function(input, output) {
 				</ul>
 				Depending on your answers, a fitting correlation method will be used.")
 				})
-			if (input$Outliers==TRUE) {results <- cor.test(datasetInput()[[input$yvar]], datasetInput()[[input$xvar]], method="spearman")}
+			if (input$Outliers==TRUE) {results <- cor.test(keep[[input$yvar]], keep[[input$xvar]], method="spearman")}
 			else {results <- "none"}
 
 			if (results != "none"){
@@ -398,7 +456,7 @@ shinyServer(function(input, output) {
 				}
 			else {
 				output$Signalert <- renderText({"Testing not possible"})
-				output$Pvalue <- renderText({"Please remove outliers before uploading data."})
+				output$Pvalue <- renderText({"Please remove outliers in the Plot view"})
 				}			
 			
 			}
@@ -413,7 +471,7 @@ shinyServer(function(input, output) {
 				you could use a chi-squared test to see whether this is the case or not.<br><br/>
 				FREDDIE Shiny has atomatically checked the requirements that the chi-squared test has on your data.")
 				})
-			results <- chisq.test(table(datasetInput()[[input$yvar]], datasetInput()[[input$xvar]]))
+			results <- chisq.test(table(keep[[input$yvar]], keep[[input$xvar]]))
 			output$Signalert <- renderText({
 				ifelse(results$p.value<=0.05, "significant", "not significant")
 				})
@@ -430,7 +488,7 @@ shinyServer(function(input, output) {
 				you could use a chi-squared test to see whether this is the case or not.<br><br/>
 				FREDDIE Shiny has atomatically checked the requirements that the chi-squared test has on your data. Some of them were not fulfilled, which is why <b>Fisher's exact test</b> is performed instead")
 				})	
-			results <- fisher.test(table(datasetInput()[[input$yvar]], datasetInput()[[input$xvar]]))
+			results <- fisher.test(table(keep[[input$yvar]], keep[[input$xvar]]))
 			output$Signalert <- renderText({
 				ifelse(results$p.value<=0.05, "significant", "not significant")
 				})

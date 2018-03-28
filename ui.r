@@ -1,5 +1,5 @@
 library(shiny)
-shinyUI(fluidPage(theme="bootstrap.css",	
+shinyUI(fluidPage(theme="bootstrap.css",		
   titlePanel("FREDDIE Shiny"),
   sidebarLayout(
     sidebarPanel(width = 3,
@@ -60,8 +60,13 @@ shinyUI(fluidPage(theme="bootstrap.css",
 				), 
 				tabPanel("Plot", 
 					h2(textOutput("PlotType")),
-					plotOutput("Plot"),
+					plotOutput("Plot", 
+						click = "plot1_click",
+						brush = brushOpts(
+							id = "plot1_brush"
+						)),
 					hr(),
+					fluidRow(uiOutput("OutlierFilter")),
 					h2("figure settings:"),
 					fluidRow(
 						column(6,
