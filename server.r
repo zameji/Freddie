@@ -1,10 +1,11 @@
 library(shiny)
 library(lmtest)
 library(ggplot2)
+# library(Cairo)
 
 shinyServer(function(input, output) {
     
-    datasetInput <- reactive({
+    # datasetInput <- reactive({
       
       # input$file1 will be NULL initially. After the user selects
       # and uploads a file, it will be a data frame with 'name',
@@ -12,14 +13,60 @@ shinyServer(function(input, output) {
       # column will contain the local filenames where the data can
       # be found.
       
-      inFile <- input$file1
+      # inFile <- input$file1
       
-      if (is.null(inFile))
-        return(NULL)
+      # if (is.null(inFile))
+        # return(NULL)
       
-      read.csv(inFile$datapath, header=input$header, sep=input$sep, 
-               quote=input$quote)
-    })
+      # read.csv(inFile$datapath, header=input$header, sep=input$sep, 
+               # quote=input$quote)
+    # })
+    
+
+	
+	# WIP <- manual override of variable types (to solve automatic type inferrence)
+	datafileInput <- reactive({
+      
+		  # input$file1 will be NULL initially. After the user selects
+		  # and uploads a file, it will be a data frame with 'name',
+		  # 'size', 'type', and 'datapath' columns. The 'datapath'
+		  # column will contain the local filenames where the data can
+		  # be found.
+		  
+		  inFile <- input$file1
+		  
+		  if (is.null(inFile))
+			return(NULL)
+		  
+		  read.csv(inFile$datapath, header=input$header, sep=input$sep, 
+				   quote=input$quote)
+		})
+	datasetInput <- reactive({
+		if (is.null(datafileInput()) == FALSE) {
+			dataset <- data.frame(lapply(names(datafileInput()), function (variable) {
+				if (is.factor(datafileInput()[[variable]]) == TRUE & input[[paste(variable, "type", sep="_")]] == "category") {datafileInput()[[variable]]}
+				else if (is.numeric(datafileInput()[[variable]]) == TRUE & input[[paste(variable, "type", sep="_")]] == "number") {datafileInput()[[variable]]}
+				else if (is.factor(datafileInput()[[variable]]) == TRUE & input[[paste(variable, "type", sep="_")]] == "number") {as.numeric(datafileInput()[[variable]])}
+				else if (is.numeric(datafileInput()[[variable]]) == TRUE & input[[paste(variable, "type", sep="_")]] == "category") {as.factor(datafileInput()[[variable]])}
+				}			
+				)
+			)
+			colnames(dataset) <- names(datafileInput())
+			return(dataset)
+		}
+		else {return(NULL)}
+		})
+		
+	output$overrider <- renderUI({
+		tagList(
+			lapply (names(datafileInput()), function (variable) {
+					if (is.factor(datafileInput()[[variable]])) {radioButtons(paste(variable, "type", sep="_"), variable,	choices = c("category", "number"), selected = "category")}
+					else {radioButtons(paste(variable, "type", sep="_"), variable,	choices = c("category", "number"), selected = "number")} 
+					}
+				)
+		
+			)
+		})
     
 	vals <- reactiveValues(keeprows=TRUE)
 	
@@ -28,7 +75,7 @@ shinyServer(function(input, output) {
       if(length(summaryOutput)==3){invisible()} else {summaryOutput}
       
     })
-    
+	
     output$varselector <- renderUI({
       tagList(
         selectInput(inputId="yvar", label="dependent variable (y axis):", 
@@ -81,15 +128,7 @@ shinyServer(function(input, output) {
         PlotType()
     })
     
-    dataobject <- reactive({
-      if (PlotType()=="bar plot:"){
-        datatabletemp <- table(datasetInput()[[input$yvar]], datasetInput()[[input$xvar]])
-        if(input$propCheck=="relative"){
-          datatabletemp <- prop.table(datatabletemp, 2)
-        }
-        datatabletemp
-      }
-    })
+
     
 	output$PlotSettings <- renderUI({
 		if (PlotType()=="bar plot:"){tagList(
@@ -135,6 +174,16 @@ shinyServer(function(input, output) {
 					)
 				}		
 		})
+		
+    dataobject <- reactive({
+      if (PlotType()=="bar plot:"){
+        datatabletemp <- table(datasetInput()[[input$yvar]], datasetInput()[[input$xvar]])
+        if(input$propCheck=="relative"){
+          datatabletemp <- prop.table(datatabletemp, 2)
+        }
+        datatabletemp
+      }
+    })	
 	
     Plotcode <- function(){
       if (!(is.null(PlotType()))){
@@ -212,7 +261,7 @@ shinyServer(function(input, output) {
 
 	# Reset all points
 	observeEvent(input$exclude_reset, {
-		vals$keeprows <- rep(TRUE, nrow(mtcars))
+		vals$keeprows <- TRUE
 		})
 		
 	observeEvent(input$xvar, {

@@ -1,5 +1,5 @@
 library(shiny)
-shinyUI(fluidPage(theme="bootstrap.css",		
+shinyUI(fluidPage(theme="bootstrap.css",
   titlePanel("FREDDIE Shiny"),
   sidebarLayout(
     sidebarPanel(width = 3,
@@ -11,7 +11,7 @@ shinyUI(fluidPage(theme="bootstrap.css",
       tags$hr(),
 	  checkboxInput(inputId='header', label='Header', TRUE),
 	  fluidRow(
-	    column(6,  
+	    column(6, 
           radioButtons(inputId='sep', label='Separator',
                    c(Comma=',',
                      Semicolon=';',
@@ -27,16 +27,20 @@ shinyUI(fluidPage(theme="bootstrap.css",
 		)
 	  ),			   
       conditionalPanel(condition = "output.sum",
-                       h2("variable selection:"),
+                       h2("Variable selection:"),
                        uiOutput("varselector")
 					   )
     ),
     mainPanel(
 			fluidRow(
 			tabsetPanel(
-				tabPanel("Summary", 
+				tabPanel("Data summary", 
 					verbatimTextOutput("sum"),
-					h2("Variable distribution summary:"),
+					uiOutput("overrider")
+				),
+				tabPanel("Variable summary", 
+					conditionalPanel(condition = "output.sum", 
+						h2("Variable distribution summary:")),
 					fluidRow(
 						column(6,
 							plotOutput("SumPlotX")
@@ -66,7 +70,7 @@ shinyUI(fluidPage(theme="bootstrap.css",
 							id = "plot1_brush"
 						)),
 					hr(),
-					fluidRow(uiOutput("OutlierFilter")),
+					uiOutput("OutlierFilter"),
 					h2("figure settings:"),
 					fluidRow(
 						column(6,
@@ -84,8 +88,7 @@ shinyUI(fluidPage(theme="bootstrap.css",
 					),
 				tabPanel("Statistic testing", 
 					p(htmlOutput("TestDescription")),
-					fluidRow(column(1),
-						column(11, uiOutput("TestSettings"))),
+					uiOutput("TestSettings"),
                     h2("test results:"),
 					p(textOutput("Pvalue")),
                     p(textOutput("Signalert")),
