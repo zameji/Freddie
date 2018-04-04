@@ -3,7 +3,7 @@ shinyUI(fluidPage(theme="bootstrap.css",
   titlePanel("FREDDIE Shiny"),
   sidebarLayout(
     sidebarPanel(width = 3,
-      h2("Data:"),
+      h3("Data:"),
       fileInput(inputId='file1', label='Choose CSV File with your data',
                 accept=c('text/csv', 
                          'text/comma-separated-values,text/plain', 
@@ -27,7 +27,7 @@ shinyUI(fluidPage(theme="bootstrap.css",
 		)
 	  ),			   
       conditionalPanel(condition = "output.sum",
-                       h2("Variable selection:"),
+                       h3("Variable selection:"),
                        uiOutput("varselector")
 					   )
     ),
@@ -39,8 +39,6 @@ shinyUI(fluidPage(theme="bootstrap.css",
 					uiOutput("overrider")
 				),
 				tabPanel("Variable summary", 
-					conditionalPanel(condition = "output.sum", 
-						h2("Variable distribution summary:")),
 					fluidRow(
 						column(6,
 							plotOutput("SumPlotX")
@@ -63,7 +61,7 @@ shinyUI(fluidPage(theme="bootstrap.css",
 						)
 				), 
 				tabPanel("Plot", 
-					h2(textOutput("PlotType")),
+					h3(textOutput("PlotType")),
 					plotOutput("Plot", 
 						click = "plot1_click",
 						brush = brushOpts(
@@ -71,7 +69,7 @@ shinyUI(fluidPage(theme="bootstrap.css",
 						)),
 					hr(),
 					uiOutput("OutlierFilter"),
-					h2("figure settings:"),
+					h3("Figure settings:"),
 					fluidRow(
 						column(6,
 							conditionalPanel(condition = "output.PlotType",
@@ -89,7 +87,7 @@ shinyUI(fluidPage(theme="bootstrap.css",
 				tabPanel("Statistic testing", 
 					p(htmlOutput("TestDescription")),
 					uiOutput("TestSettings"),
-                    h2("test results:"),
+                    h3("Test results:"),
 					p(textOutput("Pvalue")),
                     p(textOutput("Signalert")),
 					verbatimTextOutput("Testresults"))

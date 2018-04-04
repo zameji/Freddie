@@ -1,30 +1,10 @@
 library(shiny)
 library(lmtest)
 library(ggplot2)
-# library(Cairo)
+library(Cairo)
 
 shinyServer(function(input, output) {
     
-    # datasetInput <- reactive({
-      
-      # input$file1 will be NULL initially. After the user selects
-      # and uploads a file, it will be a data frame with 'name',
-      # 'size', 'type', and 'datapath' columns. The 'datapath'
-      # column will contain the local filenames where the data can
-      # be found.
-      
-      # inFile <- input$file1
-      
-      # if (is.null(inFile))
-        # return(NULL)
-      
-      # read.csv(inFile$datapath, header=input$header, sep=input$sep, 
-               # quote=input$quote)
-    # })
-    
-
-	
-	# WIP <- manual override of variable types (to solve automatic type inferrence)
 	datafileInput <- reactive({
       
 		  # input$file1 will be NULL initially. After the user selects
@@ -46,7 +26,7 @@ shinyServer(function(input, output) {
 			dataset <- data.frame(lapply(names(datafileInput()), function (variable) {
 				if (is.factor(datafileInput()[[variable]]) == TRUE & input[[paste(variable, "type", sep="_")]] == "category") {datafileInput()[[variable]]}
 				else if (is.numeric(datafileInput()[[variable]]) == TRUE & input[[paste(variable, "type", sep="_")]] == "number") {datafileInput()[[variable]]}
-				else if (is.factor(datafileInput()[[variable]]) == TRUE & input[[paste(variable, "type", sep="_")]] == "number") {as.numeric(datafileInput()[[variable]])}
+				else if (is.factor(datafileInput()[[variable]]) == TRUE & input[[paste(variable, "type", sep="_")]] == "number") {as.numeric(as.character(datafileInput()[[variable]]))}
 				else if (is.numeric(datafileInput()[[variable]]) == TRUE & input[[paste(variable, "type", sep="_")]] == "category") {as.factor(datafileInput()[[variable]])}
 				}			
 				)
@@ -68,7 +48,7 @@ shinyServer(function(input, output) {
 			)
 		})
     
-	vals <- reactiveValues(keeprows=TRUE)
+	vals <- reactiveValues(keeprows=TRUE, markcases=FALSE)
 	
     output$sum <- renderPrint({
       summaryOutput <- summary(datasetInput())
@@ -86,9 +66,9 @@ shinyServer(function(input, output) {
     })
     
     PlotType <- reactive({
-      if (is.numeric(datasetInput()[[input$yvar]]) & is.factor(datasetInput()[[input$xvar]])){return("box plot:")}
-      if (is.numeric(datasetInput()[[input$yvar]]) & is.numeric(datasetInput()[[input$xvar]])){return("scatter plot:")}
-      if (is.factor(datasetInput()[[input$yvar]]) & is.factor(datasetInput()[[input$xvar]])){return("bar plot:")}
+      if (is.numeric(datasetInput()[[input$yvar]]) & is.factor(datasetInput()[[input$xvar]])){return("Box plot:")}
+      if (is.numeric(datasetInput()[[input$yvar]]) & is.numeric(datasetInput()[[input$xvar]])){return("Scatter plot:")}
+      if (is.factor(datasetInput()[[input$yvar]]) & is.factor(datasetInput()[[input$xvar]])){return("Bar plot:")}
     })
     
 	XTitle <- reactive({paste(input$xvar)})
@@ -96,14 +76,14 @@ shinyServer(function(input, output) {
 
     output$Xsettings <- renderUI({
 	if(is.numeric(datasetInput()[[input$xvar]]) != TRUE) {invisible()} else {tagList(
-   		 sliderInput("inXSlider", "Range of values in histogram", min=range(datasetInput()[[input$xvar]])[1], max=range(datasetInput()[[input$xvar]])[2], value=range(datasetInput()[[input$xvar]])),
+   		 sliderInput("inXSlider", "Range of values in histogram", min=range(datasetInput()[[input$xvar]], na.rm=TRUE)[1], max=range(datasetInput()[[input$xvar]], na.rm=TRUE)[2], value=range(datasetInput()[[input$xvar]], na.rm=TRUE)),
 		 sliderInput("inXBinSlider", "Number of bars displayed in histogram", min=5, max=25, value=10)
 			)}
 	})
 
     output$Ysettings <- renderUI({
 	if(is.numeric(datasetInput()[[input$yvar]]) != TRUE) {invisible()} else {tagList(
-    	sliderInput("inYSlider", "Range of values in histogram", min=range(datasetInput()[[input$yvar]])[1], max=range(datasetInput()[[input$yvar]])[2], value=range(datasetInput()[[input$yvar]])),
+    	sliderInput("inYSlider", "Range of values in histogram", min=range(datasetInput()[[input$yvar]], na.rm=TRUE)[1], max=range(datasetInput()[[input$yvar]], na.rm=TRUE)[2], value=range(datasetInput()[[input$yvar]], na.rm=TRUE)),
 		sliderInput("inYBinSlider", "Number of bars displayed in histogram", min=5, max=25, value=10)
 			)}
 	})
@@ -112,16 +92,16 @@ shinyServer(function(input, output) {
 		if (is.numeric(datasetInput()[[input$xvar]])){
 			Xdata <- datasetInput()[[input$xvar]]
 			Xdata <- Xdata[Xdata>input$inXSlider[1] & Xdata<input$inXSlider[2]]
-			hist(Xdata, xlab=XTitle(), breaks=seq(min(Xdata), max(Xdata), l=input$inXBinSlider+1), main=XTitle())}
-		if (is.factor(datasetInput()[[input$xvar]])){plot(datasetInput()[[input$xvar]], xlab=XTitle())}
+			hist(Xdata, xlab=XTitle(), breaks=seq(min(Xdata, na.rm=TRUE), max(Xdata, na.rm=TRUE), l=input$inXBinSlider+1), main=paste("Distribution of ", XTitle(), sep=""))}
+		if (is.factor(datasetInput()[[input$xvar]])){plot(datasetInput()[[input$xvar]], xlab=XTitle(), main=paste("Distribution of ", XTitle(), sep=""))}
 		}
 		
 	SummaryPlotY <- function(){
 		if (is.numeric(datasetInput()[[input$yvar]])){
 			Ydata <- datasetInput()[[input$yvar]]
 			Ydata <- Ydata[Ydata>input$inYSlider[1] & Ydata<input$inYSlider[2]]
-			hist(Ydata, xlab=YTitle(),breaks=seq(min(Ydata), max(Ydata), l=input$inYBinSlider+1), main=YTitle())}
-		if (is.factor(datasetInput()[[input$yvar]])){plot(datasetInput()[[input$yvar]], xlab=YTitle())}
+			hist(Ydata, xlab=YTitle(),breaks=seq(min(Ydata, na.rm=TRUE), max(Ydata, na.rm=TRUE), l=input$inYBinSlider+1), main=paste("Distribution of ", YTitle(), sep=""))}
+		if (is.factor(datasetInput()[[input$yvar]])){plot(datasetInput()[[input$yvar]], xlab=YTitle(), main=paste("Distribution of ", YTitle(), sep=""))}
 		}
 	
     output$PlotType <- renderText({
@@ -131,17 +111,17 @@ shinyServer(function(input, output) {
 
     
 	output$PlotSettings <- renderUI({
-		if (PlotType()=="bar plot:"){tagList(
+		if (PlotType()=="Bar plot:"){tagList(
 				checkboxInput("leg", "Legend", TRUE),
 				checkboxInput("besideCheck", "Do not stack", FALSE),
-				# radioButtons("propCheck", "",	choices = c("absolute", "relative"), selected = "absolute")
+				radioButtons("propCheck", "",	choices = c("absolute", "relative"), selected = "absolute")
 				)
 			}
-		else if (PlotType()=="box plot:"){tagList(
+		else if (PlotType()=="Box plot:"){tagList(
 				checkboxInput("notchCheck", "Notches", FALSE)
 				)
 			}
-		else if (PlotType()=="scatter plot:"){tagList(
+		else if (PlotType()=="Scatter plot:"){tagList(
 				checkboxInput("regrCheck", "Regression line", FALSE),
 				checkboxInput("regrSE", "Display standard error", FALSE)
 				)
@@ -151,35 +131,41 @@ shinyServer(function(input, output) {
 	})	
 	
 	output$OutlierFilter <- renderUI({
-		if (PlotType()=="scatter plot:") 
+		if (PlotType()=="Scatter plot:") 
 				{tagList(
-					h2("Outlier removal"),
-					p("Remove outliers (cases that are too extreme to be realistic) by clicking 
-						and dragging a box and then clicking the 'remove' button."),
+					h3("Outlier removal"),
+					p("Mark outliers (cases that are too extreme to be realistic) by clicking 
+						or dragging a box and then clicking the 'Remove' button. To remove them from the statistical tests, click 'Apply'."),
+					p("You should select ALL outliers before hitting the 'Apply' button. "),
 					fluidRow(
-						column(6, actionButton("exclude_toggle", "Remove")),
-						column(6, actionButton("exclude_reset", "Reset"))
+						column(1, actionButton("exclude_toggle", "Remove")),
+						column(1, actionButton("exclude_reset", "Reset")),
+						column(1, actionButton("apply_removal", "Apply", style="color: #fff; background-color: #009933;")),
+						column(9, invisible())
 						)
 					)
 				}	
-		else if (PlotType()=="box plot:") 
+		else if (PlotType()=="Box plot:") 
 				{tagList(
-					h2("Outlier removal"),
-					p("Remove outliers (cases that are too extreme to be realistic) by clicking 
-						and dragging a box and then clicking the 'remove' button."),
+					h3("Outlier removal"),
+					p("Mark outliers (cases that are too extreme to be realistic) by clicking 
+						or dragging a box and then clicking the 'remove' button.  To remove them from the statistical tests, click 'Apply'."),
+					p("You should select ALL outliers before hitting the 'Apply' button. If the redrawn chart shows new outlier-like cases, do not remove them anymore."),
 					fluidRow(
-						column(6, actionButton("exclude_toggle", "Remove")),
-						column(6, actionButton("exclude_reset", "Reset"))
+						column(1, actionButton("exclude_toggle", "Remove")),
+						column(1, actionButton("exclude_reset", "Reset")),
+						column(1, actionButton("apply_removal", "Apply", style="color: #fff; background-color: #009933;")),
+						column(9, invisible())
 						)
 					)
 				}		
 		})
 		
     # dataobject <- reactive({
-      # if (PlotType()=="bar plot:"){
+      # if (PlotType()=="Bar plot:"){
         # datatabletemp <- table(datasetInput()[[input$yvar]], datasetInput()[[input$xvar]])
         # if(input$propCheck=="relative"){
-          # datatabletemp <- prop.table(datatabletemp, 2)
+          # datatabletemp <- prop.table(table(datasetInput()[[input$yvar]], datasetInput()[[input$xvar]]), 2)
         # }
         # datatabletemp
       # }
@@ -188,11 +174,13 @@ shinyServer(function(input, output) {
     Plotcode <- function(){
       if (!(is.null(PlotType()))){
         # create a boxplot if y variable is numeric and x variable is categorical
-        if (PlotType()=="box plot:"){
+        if (PlotType()=="Box plot:"){
 			keep    <- datasetInput()[ vals$keeprows, , drop = FALSE]
-			exclude <- datasetInput()[!vals$keeprows, , drop = FALSE]	
+			exclude <- datasetInput()[!vals$keeprows, , drop = FALSE]
+			mark <- datasetInput()[ vals$markcases, , drop = FALSE]
 			outPlot <- ggplot(keep, aes(keep[[input$xvar]], keep[[input$yvar]])) +
 				geom_boxplot(notch=input$notchCheck) +
+				geom_point(data = mark, aes(mark[[input$xvar]], mark[[input$yvar]]), shape = 4, color = "black", alpha = 0.75) +
 				geom_point(data = exclude, aes(exclude[[input$xvar]], exclude[[input$yvar]]), shape = 4, color = "black", alpha = 0.25) +
 				scale_x_discrete(name=input$xvar) + 
 				scale_y_continuous(name=input$yvar)+
@@ -204,12 +192,13 @@ shinyServer(function(input, output) {
 			
         }
         # create a scatterplot if y variable is numeric and x variable is numeric
-        if (PlotType()=="scatter plot:"){
+        if (PlotType()=="Scatter plot:"){
 			keep    <- datasetInput()[ vals$keeprows, , drop = FALSE]
 			exclude <- datasetInput()[!vals$keeprows, , drop = FALSE]	
-			
+			mark <- datasetInput()[ vals$markcases, , drop = FALSE]
 			outPlot <- ggplot(keep, aes(keep[[input$xvar]], keep[[input$yvar]])) +
-				geom_point() +
+				geom_point(shape = 16) +
+				geom_point(data = mark, aes(mark[[input$xvar]], mark[[input$yvar]]), shape = 4, color = "black", alpha = 0.75) +
 				geom_point(data = exclude, aes(exclude[[input$xvar]], exclude[[input$yvar]]), shape = 4, color = "black", alpha = 0.25) +
 				scale_x_continuous(name=input$xvar) + 
 				scale_y_continuous(name=input$yvar)+
@@ -224,23 +213,28 @@ shinyServer(function(input, output) {
 
         }
         # create a barplot if y variable is categorical and x variable is categorical
-        if (PlotType()=="bar plot:"){
-			outPlot <- ggplot(datasetInput(), aes(datasetInput()[[input$xvar]], fill=datasetInput()[[input$yvar]])) +
-				scale_x_discrete(name=input$xvar) + 
-				scale_fill_discrete(name = input$yvar) +
-				ggtitle(input$titleInput)+
-				theme_bw()+
-				scale_fill_grey(start=0, end=0.9) +
-				theme(plot.title = element_text(hjust=0.5, face="bold", size=14))
-			
-			if (input$besideCheck==TRUE){
-				outPlot <- outPlot + geom_bar(position=position_dodge())
-				}	
-			else {outPlot <- outPlot + geom_bar(position=position_stack())}
-			if (input$leg==TRUE){
-				outPlot <- outPlot + theme(legend.position="right")
-				}	
-			else {outPlot <- outPlot + theme(legend.position="none")}			
+        if (PlotType()=="Bar plot:"){
+			if (input$propCheck=="absolute"){
+				outPlot <- ggplot(datasetInput(), aes(datasetInput()[[input$xvar]], fill=datasetInput()[[input$yvar]])) +
+					scale_x_discrete(name=input$xvar) + 
+					scale_fill_discrete(name = input$yvar) +
+					ggtitle(input$titleInput)+
+					theme_bw()+
+					scale_fill_grey(start=0, end=0.9) +
+					theme(plot.title = element_text(hjust=0.5, face="bold", size=14))
+				
+				if (input$besideCheck==TRUE){
+					outPlot <- outPlot + geom_bar(position=position_dodge())
+					}	
+				else {outPlot <- outPlot + geom_bar(position=position_stack())}
+				if (input$leg==TRUE){
+					outPlot <- outPlot + theme(legend.position="right")
+					}	
+				else {outPlot <- outPlot + theme(legend.position="none")}}
+			else {
+				datatabletemp <- prop.table(table(datasetInput()[[input$yvar]], datasetInput()[[input$xvar]]), 2)
+				outPlot <- barplot(datatabletemp, beside=input$besideCheck, col=gray.colors(length(levels(datasetInput()[[input$yvar]])), start = 0.0, end = 0.9))
+				}
 			
 			return(outPlot)
 			
@@ -251,25 +245,34 @@ shinyServer(function(input, output) {
 	# Toggle points that are clicked
 	observeEvent(input$plot1_click, {
 		res <- nearPoints(datasetInput(), input$plot1_click, xvar=input$xvar, yvar=input$yvar, allRows = TRUE)
-		vals$keeprows <- xor(vals$keeprows, res$selected_)
+		vals$markcases <- vals$markcases | res$selected_
 	})
 
 	observeEvent(input$exclude_toggle, {
 		res <- brushedPoints(datasetInput(), input$plot1_brush, xvar=input$xvar, yvar=input$yvar, allRows = TRUE)
-		vals$keeprows <- xor(vals$keeprows, res$selected_)
+		vals$markcases <- vals$markcases | res$selected_
+		print(vals$markcases)
 	})
 
+	observeEvent(input$apply_removal, {
+		vals$keeprows <- xor(vals$keeprows, vals$markcases)
+		vals$markcases <- FALSE
+	})
+	
 	# Reset all points
 	observeEvent(input$exclude_reset, {
 		vals$keeprows <- TRUE
+		vals$markcases <- FALSE
 		})
 		
 	observeEvent(input$xvar, {
 		vals$keeprows <- TRUE
+		vals$markcases <- FALSE
 		})
 
 	observeEvent(input$yvar, {
 		vals$keeprows <- TRUE
+		vals$markcases <- FALSE
 		})
 		
     output$Plot <- renderPlot({
@@ -301,7 +304,7 @@ shinyServer(function(input, output) {
 	TestType <- reactive({
 	if (!(is.null(PlotType()))){
 		keep    <- datasetInput()[ vals$keeprows, , drop = FALSE]
-		if (PlotType()=="box plot:" & length(levels(keep[[input$xvar]]))==2 ){
+		if (PlotType()=="Box plot:" & length(levels(keep[[input$xvar]]))==2 ){
 			normality <- aggregate(formula = keep[[input$yvar]] ~ keep[[input$xvar]], FUN = function(x) {y <- shapiro.test(x); c(y$statistic, y$p.value)})
 			variance <- var.test(keep[[input$yvar]] ~ keep[[input$xvar]], ratio = 1, alternative = "two.sided", conf.level = 0.95,)
 			if (range(normality[,2][,2])[1] >= 0.05 & variance$p.value >= 0.05){
@@ -309,10 +312,10 @@ shinyServer(function(input, output) {
 			if (range(normality[,2][,2])[1] < 0.05 | variance$p.value < 0.05) {
 				return("wilcox")}#WILCOX TEST
 			}
-		if (PlotType()=="box plot:" & length(levels(keep[[input$xvar]]))>2 ){
+		if (PlotType()=="Box plot:" & length(levels(keep[[input$xvar]]))>2 ){
 			return("linreg")}#LINEAR REGRESSION
 			
-		if (PlotType()=="scatter plot:"){
+		if (PlotType()=="Scatter plot:"){
 			scedasticity <- bptest(lm(keep[[input$yvar]] ~ keep[[input$xvar]]))
 			normality <- lapply(data.frame(keep[[input$yvar]], keep[[input$xvar]]) , function(x) {y <- shapiro.test(x); c(y$p.value)})	
 			if (range(normality)[1] >= 0.05 & scedasticity$p.value >= 0.05) {
@@ -320,7 +323,7 @@ shinyServer(function(input, output) {
 			if (range(normality)[1] < 0.05 | scedasticity$p.value <0.05) {
 				return("spearman")}#SPEARMAN
 			}
-        if (PlotType()=="bar plot:"){			
+        if (PlotType()=="Bar plot:"){			
 			if (range(table(keep[[input$yvar]], keep[[input$xvar]]))[1] > 5) {	
 				return("chisq")}#CHISQ
 			if (range(table(keep[[input$yvar]], keep[[input$xvar]]))[1] <= 5) {	
@@ -335,24 +338,24 @@ shinyServer(function(input, output) {
 	output$TestSettings <- renderUI({
 		CurrentTestType <- TestType()
 		if (CurrentTestType == "t") {tagList(
-			h2("test settings:"),
+			h3("Test settings:"),
 			checkboxInput("Paired", "Paired data (for example before/after an experiment)", FALSE),
 			checkboxInput("Independent", "Independent data collection (the two samples are independent on each other)", TRUE)
 			)}
 		else if (CurrentTestType == "wilcox") {tagList(
-			h2("test settings:"),
+			h3("Test settings:"),
 			checkboxInput("Paired", "Paired data (for example before/after an experiment)", FALSE),
 			checkboxInput("Independent", "Independent data collection (the two samples are independent on each other)", TRUE)
 			)}
 		else if (CurrentTestType == "linreg") {invisible()}
 		else if (CurrentTestType == "pearson") {tagList(
-			h2("test settings:"),
+			h3("Test settings:"),
 			checkboxInput("Linear", "The relationship between the data is linear (the plot displays a line, not a curve)", TRUE),
 			checkboxInput("Continuous", "None of the variables is ordinal (like ranking: 1st, 2nd, etc.)", TRUE),
 			checkboxInput("Outliers", "There are no outliers in the data", TRUE)
 			)}
 		else if (CurrentTestType == "spearman") {tagList(
-			h2("test settings:"),
+			h3("Test settings:"),
 			checkboxInput("Outliers", "There are no outliers in the data", TRUE)
 			)}
 		else if (CurrentTestType == "chisq") {invisible()}
