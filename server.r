@@ -182,8 +182,8 @@ shinyServer(function(input, output) {
 			mark <- datasetInput()[ vals$markcases, , drop = FALSE]
 			outPlot <- ggplot(keep, aes(keep[[input$xvar]], keep[[input$yvar]])) +
 				geom_boxplot(notch=input$notchCheck) +
-				geom_point(data = mark, aes(mark[[input$xvar]], mark[[input$yvar]]), shape = 4, color = "black", alpha = 0.75) +
-				geom_point(data = exclude, aes(exclude[[input$xvar]], exclude[[input$yvar]]), shape = 4, color = "black", alpha = 0.25) +
+				geom_point(data = mark, aes(mark[[input$xvar]], mark[[input$yvar]]), shape = 4, color = "black", size=3, alpha = 0.75) +
+				geom_point(data = exclude, aes(exclude[[input$xvar]], exclude[[input$yvar]]), shape = 4, color = "black", size=3, alpha = 0.25) +
 				scale_x_discrete(name=input$xvar) + 
 				scale_y_continuous(name=input$yvar)+
 				ggtitle(input$titleInput)+
@@ -200,8 +200,8 @@ shinyServer(function(input, output) {
 			mark <- datasetInput()[ vals$markcases, , drop = FALSE]
 			outPlot <- ggplot(keep, aes(keep[[input$xvar]], keep[[input$yvar]])) +
 				geom_point(shape = 16) +
-				geom_point(data = mark, aes(mark[[input$xvar]], mark[[input$yvar]]), shape = 4, color = "black", alpha = 0.75) +
-				geom_point(data = exclude, aes(exclude[[input$xvar]], exclude[[input$yvar]]), shape = 4, color = "black", alpha = 0.25) +
+				geom_point(data = mark, aes(mark[[input$xvar]], mark[[input$yvar]]), shape = 4, color = "black", size=3, alpha = 0.75) +
+				geom_point(data = exclude, aes(exclude[[input$xvar]], exclude[[input$yvar]]), shape = 4, color = "black", size=3, alpha = 0.25) +
 				scale_x_continuous(name=input$xvar) + 
 				scale_y_continuous(name=input$yvar)+
 				ggtitle(input$titleInput)+
