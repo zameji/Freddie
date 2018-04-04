@@ -1,6 +1,8 @@
 library(shiny)
 shinyUI(fluidPage(
-  titlePanel("FREDDIE Shiny"),
+  div(class="header", style="color: #004a99, font-weight: bold; align-content: center;", 
+	titlePanel("FREDDIE Shiny")
+  ),
   sidebarLayout(
     sidebarPanel(width = 3,
       h3("Data:"),

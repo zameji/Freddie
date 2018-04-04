@@ -253,7 +253,6 @@ shinyServer(function(input, output) {
 	observeEvent(input$exclude_toggle, {
 		res <- brushedPoints(datasetInput(), input$plot1_brush, xvar=input$xvar, yvar=input$yvar, allRows = TRUE)
 		vals$markcases <- vals$markcases | res$selected_
-		print(vals$markcases)
 	})
 
 	observeEvent(input$apply_removal, {
