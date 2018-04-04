@@ -1,5 +1,5 @@
 library(shiny)
-shinyUI(fluidPage(theme="bootstrap.css",
+shinyUI(fluidPage(
   titlePanel("FREDDIE Shiny"),
   sidebarLayout(
     sidebarPanel(width = 3,
