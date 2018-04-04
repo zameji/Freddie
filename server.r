@@ -75,6 +75,7 @@ shinyServer(function(input, output) {
 	YTitle <- reactive({paste(input$yvar)})
 
     output$Xsettings <- renderUI({
+
 	if(is.numeric(datasetInput()[[input$xvar]]) != TRUE) {invisible()} else {tagList(
    		 sliderInput("inXSlider", "Range of values in histogram", min=range(datasetInput()[[input$xvar]], na.rm=TRUE)[1], max=range(datasetInput()[[input$xvar]], na.rm=TRUE)[2], value=range(datasetInput()[[input$xvar]], na.rm=TRUE)),
 		 sliderInput("inXBinSlider", "Number of bars displayed in histogram", min=5, max=25, value=10)
@@ -102,6 +103,7 @@ shinyServer(function(input, output) {
 			Ydata <- Ydata[Ydata>input$inYSlider[1] & Ydata<input$inYSlider[2]]
 			hist(Ydata, xlab=YTitle(),breaks=seq(min(Ydata, na.rm=TRUE), max(Ydata, na.rm=TRUE), l=input$inYBinSlider+1), main=paste("Distribution of ", YTitle(), sep=""))}
 		if (is.factor(datasetInput()[[input$yvar]])){plot(datasetInput()[[input$yvar]], xlab=YTitle(), main=paste("Distribution of ", YTitle(), sep=""))}
+
 		}
 	
     output$PlotType <- renderText({
@@ -566,5 +568,6 @@ shinyServer(function(input, output) {
     output$Testresults <- renderPrint({
       Testcode()
     })
+
 })
 
