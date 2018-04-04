@@ -1,9 +1,9 @@
 library(shiny)
-shinyUI(fluidPage(
+shinyUI(fluidPage(theme="bootstrap.css",
   titlePanel("FREDDIE Shiny"),
   sidebarLayout(
     sidebarPanel(width = 3,
-      h2("Data:"),
+      h3("Data:"),
       fileInput(inputId='file1', label='Choose CSV File with your data',
                 accept=c('text/csv', 
                          'text/comma-separated-values,text/plain', 
@@ -11,7 +11,7 @@ shinyUI(fluidPage(
       tags$hr(),
 	  checkboxInput(inputId='header', label='Header', TRUE),
 	  fluidRow(
-	    column(6,  
+	    column(6, 
           radioButtons(inputId='sep', label='Separator',
                    c(Comma=',',
                      Semicolon=';',
@@ -27,16 +27,18 @@ shinyUI(fluidPage(
 		)
 	  ),			   
       conditionalPanel(condition = "output.sum",
-                       h2("variable selection:"),
+                       h3("Variable selection:"),
                        uiOutput("varselector")
 					   )
     ),
     mainPanel(
 			fluidRow(
 			tabsetPanel(
-				tabPanel("Summary", 
+				tabPanel("Data summary", 
 					verbatimTextOutput("sum"),
-					h2("Variable distribution summary:"),
+					uiOutput("overrider")
+				),
+				tabPanel("Variable summary", 
 					fluidRow(
 						column(6,
 							plotOutput("SumPlotX")
@@ -59,10 +61,15 @@ shinyUI(fluidPage(
 						)
 				), 
 				tabPanel("Plot", 
-					h2(textOutput("PlotType")),
-					plotOutput("Plot"),
+					h3(textOutput("PlotType")),
+					plotOutput("Plot", 
+						click = "plot1_click",
+						brush = brushOpts(
+							id = "plot1_brush"
+						)),
 					hr(),
-					h2("figure settings:"),
+					uiOutput("OutlierFilter"),
+					h3("Figure settings:"),
 					fluidRow(
 						column(6,
 							conditionalPanel(condition = "output.PlotType",
@@ -73,26 +80,15 @@ shinyUI(fluidPage(
 								)
 							),
 						column(6,
-							conditionalPanel(condition = "output.PlotType=='bar plot:'",
-								checkboxInput(inputId='leg', label='Legend', TRUE),
-								checkboxInput(inputId='besideCheck', label='Do not stack', FALSE),
-								radioButtons(inputId='propCheck',
-								label='',
-								choices = c("absolute", "relative"), selected = "absolute")
-								),
-							conditionalPanel(condition = "output.PlotType=='box plot:'",
-								checkboxInput(inputId='notchCheck', label='Notches', FALSE)
-								),
-							conditionalPanel(condition = "output.PlotType=='scatter plot:'",
-								checkboxInput(inputId='regrCheck', label='Regression line', FALSE)
-								)
-
+							uiOutput("PlotSettings")
 							)
 						)
 					),
-				tabPanel("Results", 
-					h2("statistics:"),
-                    p(textOutput("Pvalue")),
+				tabPanel("Statistic testing", 
+					p(htmlOutput("TestDescription")),
+					uiOutput("TestSettings"),
+                    h3("Test results:"),
+					p(textOutput("Pvalue")),
                     p(textOutput("Signalert")),
 					verbatimTextOutput("Testresults"))
 				)
