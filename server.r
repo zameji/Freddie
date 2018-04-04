@@ -137,10 +137,10 @@ shinyServer(function(input, output) {
 				{tagList(
 					h3("Outlier removal"),
 					p("Mark outliers (cases that are too extreme to be realistic) by clicking 
-						or dragging a box and then clicking the 'Remove' button. To remove them from the statistical tests, click 'Apply'."),
+						or dragging a box and then clicking the 'Select' button. To remove them from the statistical tests, click 'Apply'."),
 					p("You should select ALL outliers before hitting the 'Apply' button. "),
 					fluidRow(
-						column(1, actionButton("exclude_toggle", "Remove")),
+						column(1, actionButton("exclude_toggle", "Select")),
 						column(1, actionButton("exclude_reset", "Reset")),
 						column(1, actionButton("apply_removal", "Apply", style="color: #fff; background-color: #009933;")),
 						column(9, invisible())
@@ -151,10 +151,10 @@ shinyServer(function(input, output) {
 				{tagList(
 					h3("Outlier removal"),
 					p("Mark outliers (cases that are too extreme to be realistic) by clicking 
-						or dragging a box and then clicking the 'remove' button.  To remove them from the statistical tests, click 'Apply'."),
+						or dragging a box and then clicking the 'Select' button.  To remove them from the statistical tests, click 'Apply'."),
 					p("You should select ALL outliers before hitting the 'Apply' button. If the redrawn chart shows new outlier-like cases, do not remove them anymore."),
 					fluidRow(
-						column(1, actionButton("exclude_toggle", "Remove")),
+						column(1, actionButton("exclude_toggle", "Select")),
 						column(1, actionButton("exclude_reset", "Reset")),
 						column(1, actionButton("apply_removal", "Apply", style="color: #fff; background-color: #009933;")),
 						column(9, invisible())
@@ -257,7 +257,7 @@ shinyServer(function(input, output) {
 	})
 
 	observeEvent(input$apply_removal, {
-		vals$keeprows <- xor(vals$keeprows, vals$markcases)
+		vals$keeprows <- vals$keeprows & !vals$markcases
 		vals$markcases <- FALSE
 	})
 	
