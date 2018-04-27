@@ -127,24 +127,63 @@ shinyServer(function(input, output) {
 	})
 
 	SummaryPlotX <- function(){
-		if (is.numeric(datasetInput()[[input$xvar]])){
-			Xdata <- datasetInput()[[input$xvar]]
-			Xdata <- Xdata[Xdata>input$inXSlider[1] & Xdata<input$inXSlider[2]]
-			hist(Xdata, xlab=XTitle(), breaks=seq(min(Xdata, na.rm=TRUE), max(Xdata, na.rm=TRUE), l=input$inXBinSlider+1), main=paste("Distribution of ", XTitle(), sep=""))}
-		if (is.factor(datasetInput()[[input$xvar]])){plot(datasetInput()[[input$xvar]], xlab=XTitle(), main=paste("Distribution of ", XTitle(), sep=""))}
+		if (!is.null(datasetInput()==TRUE)){
+			if (is.numeric(datasetInput()[[input$xvar]])){
+				Xdata <- datasetInput()[[input$xvar]]
+				Xdata <- Xdata[Xdata>input$inXSlider[1] & Xdata<input$inXSlider[2]]
+				g <- ggplot() +
+					aes(Xdata) +
+					geom_histogram(aes(fill=..count..), col="black", alpha=.5, breaks=seq(min(Xdata, na.rm=TRUE), max(Xdata, na.rm=TRUE), l=input$inXBinSlider+1)) +
+					theme_bw() +
+					theme(plot.title = element_text(hjust = 0.5, face="bold", size=14)) +
+					scale_fill_gradient("Count", low = "grey100", high = "grey50") +
+					labs(title=paste("Distribution of ", tolower(XTitle()), sep="")) +
+					labs(x=XTitle(),y="Frequency")
+				return(g)
+				}
+			if (is.factor(datasetInput()[[input$xvar]])){
+				ggplot(datasetInput(), aes(datasetInput()[[input$xvar]])) +
+						scale_x_discrete(name=XTitle()) + 
+						labs(title=paste("Distribution of ", tolower(XTitle()), sep="")) +
+						theme_bw() +
+						theme(plot.title = element_text(hjust=0.5, face="bold", size=14), legend.position="none") +
+						geom_bar(position=position_dodge(), aes(fill=..count..)) +
+						scale_fill_gradient("Count", low = "grey75", high = "grey50")
+				}
+			}
 		}
 		
 	SummaryPlotY <- function(){
-		if (is.numeric(datasetInput()[[input$yvar]])){
-			Ydata <- datasetInput()[[input$yvar]]
-			Ydata <- Ydata[Ydata>input$inYSlider[1] & Ydata<input$inYSlider[2]]
-			hist(Ydata, xlab=YTitle(),breaks=seq(min(Ydata, na.rm=TRUE), max(Ydata, na.rm=TRUE), l=input$inYBinSlider+1), main=paste("Distribution of ", YTitle(), sep=""))}
-		if (is.factor(datasetInput()[[input$yvar]])){plot(datasetInput()[[input$yvar]], xlab=YTitle(), main=paste("Distribution of ", YTitle(), sep=""))}
-
+		if (!is.null(datasetInput()==TRUE)){
+			if (is.numeric(datasetInput()[[input$yvar]])){
+				Ydata <- datasetInput()[[input$yvar]]
+				Ydata <- Ydata[Ydata>input$inYSlider[1] & Ydata<input$inYSlider[2]]
+				g <- ggplot() +
+					aes(Ydata) +
+					geom_histogram(aes(fill=..count..), col="black", alpha=.5, breaks=seq(min(Ydata, na.rm=TRUE), max(Ydata, na.rm=TRUE), l=input$inYBinSlider+1)) +
+					theme_bw() +
+					theme(plot.title = element_text(hjust = 0.5, face="bold", size=14)) +
+					scale_fill_gradient("Count", low = "grey100", high = "grey50") +
+					labs(title=paste("Distribution of ", tolower(YTitle()), sep="")) +
+					labs(x=YTitle(),y="Frequency")
+				return(g)
+				}
+			if (is.factor(datasetInput()[[input$yvar]])){
+				ggplot(datasetInput(), aes(datasetInput()[[input$yvar]])) +
+					scale_x_discrete(name=YTitle()) + 
+					labs(title=paste("Distribution of ", tolower(YTitle()), sep="")) +
+					theme_bw() +
+					theme(plot.title = element_text(hjust=0.5, face="bold", size=14), legend.position="none") +
+					geom_bar(position=position_dodge(), aes(fill=..count..)) +
+					scale_fill_gradient("Count", low = "grey75", high = "grey50")
+				}
+			}
+		else {invisible()}
 		}
+		
 	
-    output$PlotType <- renderText({
-        PlotType()
+	output$PlotType <- renderText({
+			PlotType()
     })
     
 
@@ -264,10 +303,9 @@ shinyServer(function(input, output) {
 			if (input$propCheck=="absolute"){
 				outPlot <- ggplot(datasetInput(), aes(datasetInput()[[input$xvar]], fill=datasetInput()[[input$yvar]])) +
 					scale_x_discrete(name=XTitle()) + 
-					scale_fill_discrete(name = YTitle()) +
 					ggtitle(input$titleInput)+
 					theme_bw()+
-					scale_fill_grey(start=0, end=0.9) +
+					scale_fill_grey(start=0, end=0.8, name = YTitle()) +
 					theme(plot.title = element_text(hjust=0.5, face="bold", size=14))
 				
 				if (input$besideCheck==TRUE){
@@ -284,7 +322,7 @@ shinyServer(function(input, output) {
 					scale_fill_discrete(name = YTitle()) +
 					ggtitle(input$titleInput) +
 					theme_bw()+
-					scale_fill_grey(start=0, end=0.9) +
+					scale_fill_grey(start=0, end=0.9, name = YTitle()) +
 					theme(plot.title = element_text(hjust=0.5, face="bold", size=14))
 				
 				if (input$besideCheck==TRUE){
@@ -296,9 +334,6 @@ shinyServer(function(input, output) {
 					}	
 				else {outPlot <- outPlot + theme(legend.position="none")}}
 			
-			
-				# datatabletemp <- prop.table(table(datasetInput()[[input$yvar]], datasetInput()[[input$xvar]]), 2)
-				# outPlot <- barplot(datatabletemp, beside=input$besideCheck, col=gray.colors(length(levels(datasetInput()[[input$yvar]])), start = 0.0, end = 0.9))
 				}
 			
 			return(outPlot)

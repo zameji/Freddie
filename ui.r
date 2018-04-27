@@ -64,7 +64,6 @@ shinyUI(fluidPage(
 						)
 				), 
 				tabPanel("Plot", 
-					h3(textOutput("PlotType")),
 					plotOutput("Plot", 
 						click = "plot1_click",
 						brush = brushOpts(
