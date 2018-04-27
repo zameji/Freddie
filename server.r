@@ -51,10 +51,47 @@ shinyServer(function(input, output) {
 	vals <- reactiveValues(keeprows=TRUE, markcases=FALSE)
 	
     output$sum <- renderPrint({
-      summaryOutput <- summary(datasetInput())
-      if(length(summaryOutput)==3){invisible()} else {summaryOutput}
+		summaryOutput <- summary(datasetInput())
+		if(length(summaryOutput)==3){invisible()} 
+		else {summaryOutput}
       
     })
+	
+	output$help <- renderUI({
+		if (is.null(datasetInput()) == TRUE) {
+				tagList(h3("Welcome to FREDDIE Shiny!"),
+							h4("How to use it"),
+							HTML('FREDDIE Shiny is an interface to allow you simple quantitative analyses of your data. In order to use it, you will need a dataset in the CSV format.
+								For practice you can get some data <a href="https://1drv.ms/u/s!AiIxNMjRmvCLj-cpj0yUHcS9uDSLCQ">here</a>.'),
+							p("The interface loads after you uploaded the dataset. If it displays errors, make sure that you select the correct settings for 'Separator', 'Quote sign' and 'Header' with respect to the CSV file you uploaded."),
+							p("Once everything is ready, use the 'Data summary' tab to check that the individual variables were correctly recognized as categories or numbers."),
+							h4("Creating plots"),
+							p("Plots can be created in the tabs 'Variable summary' and 'Plot', depending whether you want to plot the distribution of one of your variables on its own or the relationship between your dependent and independent variables.
+								The plot type is selected automatically and depends on the type of variable used. Still you have some options to determine the exact visuals of most of the plots. The plots used include:"),
+							HTML('<ul>
+								<li><a href="https://en.wikipedia.org/wiki/Histogram">Histogram</a></li>
+								<li><a href="https://en.wikipedia.org/wiki/Box_plot">Boxplot</a></li>
+								<li><a href="https://en.wikipedia.org/wiki/Scatter_plot">Scatterplot</a></li>
+								<li><a href="https://en.wikipedia.org/wiki/Bar_chart">Bar chart</a></li>
+								</ul>'),
+							h4("Statistical testing"),
+							p("Statistical tests are automated as far as possible, so you should not make any grave mistakes. Still, some of them require some input from you. This is always described together with the test in the correspondig tab"),
+							h4("Procedure"),
+							HTML('<ol>
+								<li>Load your data in CSV format</li>
+								<li>Verify that FREDDIE imported the data correctly, if not adjust the necessary settings.</li>
+								<li>Choose your <b>independent (predicting) variable</b> - usually something like "age" or "gender"</li>
+								<li>Choose your <b>dependent (predicted) variable</b> - usually something like "points" or "frequency"</li>
+								<li>Explore the distribution of the variables on their own</li>
+								<li>Look at their relationship</li>
+								<li>If there are <a href="https://en.wikipedia.org/wiki/Outlier">outliers</a> in the data, use the outlier removal function to exclude them. <b> Only click the "Apply" button once!</b></li>
+								<li>Adjust the settings of the selected statistical test, if needed.</li>
+								<li>View the results of the test. Is there a significant relationship/difference?</li>
+								</ol>')
+				)
+			}
+		else {invisible()}
+		})
 	
     output$varselector <- renderUI({
       tagList(
@@ -90,77 +127,124 @@ shinyServer(function(input, output) {
 	})
 
 	SummaryPlotX <- function(){
-		if (is.numeric(datasetInput()[[input$xvar]])){
-			Xdata <- datasetInput()[[input$xvar]]
-			Xdata <- Xdata[Xdata>input$inXSlider[1] & Xdata<input$inXSlider[2]]
-			hist(Xdata, xlab=XTitle(), breaks=seq(min(Xdata, na.rm=TRUE), max(Xdata, na.rm=TRUE), l=input$inXBinSlider+1), main=paste("Distribution of ", XTitle(), sep=""))}
-		if (is.factor(datasetInput()[[input$xvar]])){plot(datasetInput()[[input$xvar]], xlab=XTitle(), main=paste("Distribution of ", XTitle(), sep=""))}
+		if (!is.null(datasetInput()==TRUE)){
+			if (is.numeric(datasetInput()[[input$xvar]])){
+				Xdata <- datasetInput()[[input$xvar]]
+				Xdata <- Xdata[Xdata>input$inXSlider[1] & Xdata<input$inXSlider[2]]
+				g <- ggplot() +
+					aes(Xdata) +
+					geom_histogram(aes(fill=..count..), col="black", alpha=.5, breaks=seq(min(Xdata, na.rm=TRUE), max(Xdata, na.rm=TRUE), l=input$inXBinSlider+1)) +
+					theme_bw() +
+					theme(plot.title = element_text(hjust = 0.5, face="bold", size=14)) +
+					scale_fill_gradient("Count", low = "grey100", high = "grey50") +
+					labs(title=paste("Distribution of ", tolower(XTitle()), sep="")) +
+					labs(x=XTitle(),y="Frequency")
+				return(g)
+				}
+			if (is.factor(datasetInput()[[input$xvar]])){
+				ggplot(datasetInput(), aes(datasetInput()[[input$xvar]])) +
+						scale_x_discrete(name=XTitle()) + 
+						labs(title=paste("Distribution of ", tolower(XTitle()), sep="")) +
+						theme_bw() +
+						theme(plot.title = element_text(hjust=0.5, face="bold", size=14), legend.position="none") +
+						geom_bar(position=position_dodge(), aes(fill=..count..)) +
+						scale_fill_gradient("Count", low = "grey75", high = "grey50")
+				}
+			}
 		}
 		
 	SummaryPlotY <- function(){
-		if (is.numeric(datasetInput()[[input$yvar]])){
-			Ydata <- datasetInput()[[input$yvar]]
-			Ydata <- Ydata[Ydata>input$inYSlider[1] & Ydata<input$inYSlider[2]]
-			hist(Ydata, xlab=YTitle(),breaks=seq(min(Ydata, na.rm=TRUE), max(Ydata, na.rm=TRUE), l=input$inYBinSlider+1), main=paste("Distribution of ", YTitle(), sep=""))}
-		if (is.factor(datasetInput()[[input$yvar]])){plot(datasetInput()[[input$yvar]], xlab=YTitle(), main=paste("Distribution of ", YTitle(), sep=""))}
-
+		if (!is.null(datasetInput()==TRUE)){
+			if (is.numeric(datasetInput()[[input$yvar]])){
+				Ydata <- datasetInput()[[input$yvar]]
+				Ydata <- Ydata[Ydata>input$inYSlider[1] & Ydata<input$inYSlider[2]]
+				g <- ggplot() +
+					aes(Ydata) +
+					geom_histogram(aes(fill=..count..), col="black", alpha=.5, breaks=seq(min(Ydata, na.rm=TRUE), max(Ydata, na.rm=TRUE), l=input$inYBinSlider+1)) +
+					theme_bw() +
+					theme(plot.title = element_text(hjust = 0.5, face="bold", size=14)) +
+					scale_fill_gradient("Count", low = "grey100", high = "grey50") +
+					labs(title=paste("Distribution of ", tolower(YTitle()), sep="")) +
+					labs(x=YTitle(),y="Frequency")
+				return(g)
+				}
+			if (is.factor(datasetInput()[[input$yvar]])){
+				ggplot(datasetInput(), aes(datasetInput()[[input$yvar]])) +
+					scale_x_discrete(name=YTitle()) + 
+					labs(title=paste("Distribution of ", tolower(YTitle()), sep="")) +
+					theme_bw() +
+					theme(plot.title = element_text(hjust=0.5, face="bold", size=14), legend.position="none") +
+					geom_bar(position=position_dodge(), aes(fill=..count..)) +
+					scale_fill_gradient("Count", low = "grey75", high = "grey50")
+				}
+			}
+		else {invisible()}
 		}
+		
 	
-    output$PlotType <- renderText({
-        PlotType()
+	output$PlotType <- renderText({
+			PlotType()
     })
     
 
     
 	output$PlotSettings <- renderUI({
-		if (PlotType()=="Bar plot:"){tagList(
-				checkboxInput("leg", "Legend", TRUE),
-				checkboxInput("besideCheck", "Do not stack", FALSE),
-				radioButtons("propCheck", "",	choices = c("absolute", "relative"), selected = "absolute")
-				)
-			}
-		else if (PlotType()=="Box plot:"){tagList(
-				checkboxInput("notchCheck", "Notches", FALSE)
-				)
-			}
-		else if (PlotType()=="Scatter plot:"){tagList(
-				checkboxInput("regrCheck", "Regression line", FALSE),
-				checkboxInput("regrSE", "Display standard error", FALSE)
-				)
-			}
-		 
-		else {invisible()}
+		if (is.null(datasetInput()) == TRUE) {invisible()}
+		else{
+			if (PlotType()=="Bar plot:"){tagList(
+					checkboxInput("leg", "Legend", TRUE),
+					checkboxInput("besideCheck", "Do not stack", FALSE),
+					radioButtons("propCheck", "",	choices = c("absolute", "relative"), selected = "absolute")
+					)
+				}
+			else if (PlotType()=="Box plot:"){tagList(
+					checkboxInput("notchCheck", "Notches", FALSE)
+					)
+				}
+			else if (PlotType()=="Scatter plot:"){tagList(
+					checkboxInput("regrCheck", "Regression line", FALSE),
+					checkboxInput("regrSE", "Display standard error", FALSE)
+					)
+				}
+			 
+			else {invisible()}
+		}
 	})	
 	
 	output$OutlierFilter <- renderUI({
-		if (PlotType()=="Scatter plot:") 
-				{tagList(
-					h3("Outlier removal"),
-					p("Mark outliers (cases that are too extreme to be realistic) by clicking 
-						or dragging a box and then clicking the 'Select' button. To remove them from the statistical tests, click 'Apply'."),
-					p("You should select ALL outliers before hitting the 'Apply' button. "),
-					fluidRow(
-						column(1, actionButton("exclude_toggle", "Select")),
-						column(1, actionButton("exclude_reset", "Reset")),
-						column(1, actionButton("apply_removal", "Apply", style="color: #fff; background-color: #009933;")),
-						column(9, invisible())
+	if (is.null(datasetInput()) == TRUE) {invisible()}
+	else {
+			if (PlotType()=="Scatter plot:") 
+					{tagList(
+						h3("Outlier removal"),
+						p("Mark outliers (cases that are too extreme to be realistic) by clicking 
+							or dragging a box and then clicking the 'Select' button. To remove them from the statistical tests, click 'Apply'."),
+						p("You should select ALL outliers before hitting the 'Apply' button. "),
+						fluidRow(
+							column(1, actionButton("exclude_toggle", "Select")),
+							column(1, actionButton("exclude_reset", "Reset")),
+							column(1, actionButton("apply_removal", "Apply", style="color: #fff; background-color: #009933;")),
+							column(9, invisible())
+							)
 						)
-					)
-				}	
-		else if (PlotType()=="Box plot:") 
-				{tagList(
-					h3("Outlier removal"),
-					p("Mark outliers (cases that are too extreme to be realistic) by clicking 
-						or dragging a box and then clicking the 'Select' button.  To remove them from the statistical tests, click 'Apply'."),
-					p("You should select ALL outliers before hitting the 'Apply' button. If the redrawn chart shows new outlier-like cases, do not remove them anymore."),
-					fluidRow(
-						column(1, actionButton("exclude_toggle", "Select")),
-						column(1, actionButton("exclude_reset", "Reset")),
-						column(1, actionButton("apply_removal", "Apply", style="color: #fff; background-color: #009933;")),
-						column(9, invisible())
+					}	
+			else if (PlotType()=="Box plot:") 
+					{tagList(
+						h3("Outlier removal"),
+						p("Mark outliers (cases that are too extreme to be realistic) by clicking 
+							or dragging a box and then clicking the 'Select' button.  To remove them from the statistical tests, click 'Apply'."),
+						p("You should select ALL outliers before hitting the 'Apply' button. If the redrawn chart shows new outlier-like cases, do not remove them anymore."),
+						fluidRow(
+							column(1, actionButton("exclude_toggle", "Select")),
+							column(1, actionButton("exclude_reset", "Reset")),
+							column(1, actionButton("apply_removal", "Apply", style="color: #fff; background-color: #009933;")),
+							column(9, invisible())
+							)
 						)
-					)
-				}		
+					}
+			else {invisible()}
+			}
+		
 		})
 		
     # dataobject <- reactive({
@@ -218,11 +302,10 @@ shinyServer(function(input, output) {
         if (PlotType()=="Bar plot:"){
 			if (input$propCheck=="absolute"){
 				outPlot <- ggplot(datasetInput(), aes(datasetInput()[[input$xvar]], fill=datasetInput()[[input$yvar]])) +
-					scale_x_discrete(name=input$xvar) + 
-					scale_fill_discrete(name = input$yvar) +
+					scale_x_discrete(name=XTitle()) + 
 					ggtitle(input$titleInput)+
 					theme_bw()+
-					scale_fill_grey(start=0, end=0.9) +
+					scale_fill_grey(start=0, end=0.8, name = YTitle()) +
 					theme(plot.title = element_text(hjust=0.5, face="bold", size=14))
 				
 				if (input$besideCheck==TRUE){
@@ -234,15 +317,30 @@ shinyServer(function(input, output) {
 					}	
 				else {outPlot <- outPlot + theme(legend.position="none")}}
 			else {
-				datatabletemp <- prop.table(table(datasetInput()[[input$yvar]], datasetInput()[[input$xvar]]), 2)
-				outPlot <- barplot(datatabletemp, beside=input$besideCheck, col=gray.colors(length(levels(datasetInput()[[input$yvar]])), start = 0.0, end = 0.9))
+				outPlot <- ggplot(datasetInput(), aes(datasetInput()[[input$xvar]], fill=datasetInput()[[input$yvar]])) +
+					scale_x_discrete(name=XTitle()) + 
+					scale_fill_discrete(name = YTitle()) +
+					ggtitle(input$titleInput) +
+					theme_bw()+
+					scale_fill_grey(start=0, end=0.9, name = YTitle()) +
+					theme(plot.title = element_text(hjust=0.5, face="bold", size=14))
+				
+				if (input$besideCheck==TRUE){
+					outPlot <- outPlot + geom_bar(position=position_dodge())
+					}	
+				else {outPlot <- outPlot + geom_bar(position="fill")}
+				if (input$leg==TRUE){
+					outPlot <- outPlot + theme(legend.position="right")
+					}	
+				else {outPlot <- outPlot + theme(legend.position="none")}}
+			
 				}
 			
 			return(outPlot)
 			
         }
       }
-    }
+   
     
 	# Toggle points that are clicked
 	observeEvent(input$plot1_click, {

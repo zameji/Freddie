@@ -1,7 +1,7 @@
 library(shiny)
 shinyUI(fluidPage(
   div(class="header", style="color: #004a99, font-weight: bold; align-content: center;", 
-	titlePanel("FREDDIE Shiny")
+	titlePanel("",windowTitle="FREDDIE Shiny")
   ),
   sidebarLayout(
     sidebarPanel(width = 3,
@@ -28,12 +28,13 @@ shinyUI(fluidPage(
                    '"')
 		)
 	  ),			   
-      conditionalPanel(condition = "output.sum",
+      conditionalPanel(condition = "Output.sum",
                        h3("Variable selection:"),
                        uiOutput("varselector")
 					   )
     ),
     mainPanel(
+			fluidRow(uiOutput("help")),
 			fluidRow(
 			tabsetPanel(
 				tabPanel("Data summary", 
@@ -63,7 +64,6 @@ shinyUI(fluidPage(
 						)
 				), 
 				tabPanel("Plot", 
-					h3(textOutput("PlotType")),
 					plotOutput("Plot", 
 						click = "plot1_click",
 						brush = brushOpts(
@@ -86,16 +86,19 @@ shinyUI(fluidPage(
 							)
 						)
 					),
-				tabPanel("Statistic testing", 
+				tabPanel("Statistical testing", 
 					p(htmlOutput("TestDescription")),
 					uiOutput("TestSettings"),
-                    h3("Test results:"),
+					h3("Test results:"),
 					p(textOutput("Pvalue")),
-                    p(textOutput("Signalert")),
+					p(textOutput("Signalert")),
 					verbatimTextOutput("Testresults"))
 				)
 			)
 		)	  
-	)
+	),
+	hr(),
+	fluidRow(column(12, align="center", HTML('This interface is a part of the <a href="https://www.anglistik.uni-freiburg.de/seminar/abteilungen/sprachwissenschaft/ls_kortmann/FREDDIE">FREDDIE</a> project at University Freiburg.'))),
+	fluidRow(column(12, align="center", HTML('<a href="mailto:jiri.zamecnik@anglistik.uni-freiburg.de">Contact us</a>')))
 )
 )
