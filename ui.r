@@ -31,14 +31,21 @@ shinyUI(fluidPage(
       conditionalPanel(condition = "Output.sum",
                        h3("Variable selection:"),
                        uiOutput("varselector")
-					   )
+					   ),
+	  h3("General plot settings:"),
+	  radioButtons(inputId='serif', label='Font type',
+		   c("Serif"="serif",
+			 "Sans serif"="sans"),
+		   "sans"),
+	  sliderInput("fontSize", "Font size", min=6, max=48, value=12)
+					   
     ),
     mainPanel(
 			fluidRow(uiOutput("help")),
 			fluidRow(
 			tabsetPanel(
 				tabPanel("Data summary", 
-					verbatimTextOutput("sum"),
+					conditionalPanel(condition="Output.PlotType", verbatimTextOutput("sum")),
 					uiOutput("overrider")
 				),
 				tabPanel("Variable summary", 
