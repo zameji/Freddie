@@ -2,6 +2,7 @@ library(shiny)
 library(lmtest)
 library(ggplot2)
 library(Cairo)
+options(shiny.usecairo=FALSE)
 shinyServer(function(input, output) {
 	datafileInput <- reactive({
 		  inFile <- input$file1
