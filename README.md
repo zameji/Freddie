@@ -6,3 +6,5 @@ This is the code of a simple Shiny server used within university environment to 
 It takes the data in a CSV file and visualises the variables in it as well as their relationship using the ggplot2 package.
 
 Statistical tests are automatically chosen and performed with minimal input from the students.
+
+The theme is based on Bootswatch.com
