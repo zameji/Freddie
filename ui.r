@@ -1,5 +1,6 @@
 library(shiny)
 shinyUI(fluidPage(
+  theme="theme.css",
   div(class="header", style="color: #004a99, font-weight: bold; align-content: center;", 
 	titlePanel("",windowTitle="FREDDIE Shiny")
   ),
@@ -33,10 +34,14 @@ shinyUI(fluidPage(
                        uiOutput("varselector")
 					   ),
 	  h3("General plot settings:"),
-	  radioButtons(inputId='serif', label='Font type',
+	  fluidRow(column(6, radioButtons(inputId='color', label='Color', c("Greyscale"="grey", "Colorblind-friendly"="cb", "Color"="color"), "grey")
+		),
+	  column(6,radioButtons(inputId='serif', label='Font type',
 		   c("Serif"="serif",
 			 "Sans serif"="sans"),
-		   "sans"),
+		   "sans")
+		)
+		   ),
 	  sliderInput("fontSize", "Font size", min=6, max=48, value=12)
 					   
     ),

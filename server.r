@@ -3,6 +3,10 @@ library(lmtest)
 library(ggplot2)
 library(Cairo)
 options(shiny.usecairo=FALSE)
+
+bx.stat <- function(inp){return(boxplot.stats(inp)$stats[c(1,5)])}
+cbPalette <- c("#999999", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
+
 shinyServer(function(input, output) {
 	datafileInput <- reactive({
 		  inFile <- input$file1
@@ -61,7 +65,7 @@ shinyServer(function(input, output) {
 								The plot type is selected automatically and depends on the type of variable used. Still you have some options to determine the exact visuals of most of the plots. The plots used include:"),
 							HTML('<ul>
 								<li><a href="https://en.wikipedia.org/wiki/Histogram">Histogram</a></li>
-								<li><a href="https://en.wikipedia.org/wiki/Box_plot">Boxplot</a></li>
+								<li><a href="https://en.wikipedia.org/wiki/Box_plot">Boxplot</a>/<a href="https://en.wikipedia.org/wiki/Violin_plot">Violin plot</a></li>
 								<li><a href="https://en.wikipedia.org/wiki/Scatter_plot">Scatterplot</a></li>
 								<li><a href="https://en.wikipedia.org/wiki/Bar_chart">Bar chart</a></li>
 								</ul>'),
@@ -94,11 +98,14 @@ shinyServer(function(input, output) {
 		else {invisible()}
     })
     PlotType <- reactive({
+	 if (is.null(datasetInput())==FALSE){
       if (is.numeric(datasetInput()[[input$yvar]]) & is.factor(datasetInput()[[input$xvar]])){return("Box plot:")}
       if (is.numeric(datasetInput()[[input$yvar]]) & is.numeric(datasetInput()[[input$xvar]])){return("Scatter plot:")}
       if (is.factor(datasetInput()[[input$yvar]]) & is.factor(datasetInput()[[input$xvar]])){return("Bar plot:")}
-	  if (is.factor(datasetInput()[[input$yvar]]) & length(levels(datasetInput()[[input$yvar]]))==2 & is.numeric(datasetInput()[[input$xvar]])){return("LogReg plot:")}
-    })
+	  if (is.factor(datasetInput()[[input$yvar]]) & length(levels(datasetInput()[[input$yvar]]))==2 & is.numeric(datasetInput()[[input$xvar]])){return("LogReg plot:")}}
+	  else {NULL}
+	
+	})
 	XTitle <- reactive({if(is.null(datasetInput()) == FALSE){paste(input$xvar)}})
 	YTitle <- reactive({if(is.null(datasetInput()) == FALSE){paste(input$yvar)}})
     output$Xsettings <- renderUI({
@@ -127,19 +134,24 @@ shinyServer(function(input, output) {
 					geom_histogram(aes(fill=..count..), col="black", alpha=.5, breaks=seq(min(Xdata, na.rm=TRUE), max(Xdata, na.rm=TRUE), l=input$inXBinSlider+1)) +
 					theme_bw() +
 					theme(plot.title = element_text(hjust = 0.5, face="bold", size=round(input$fontSize*1.15)), text=element_text(family=input$serif, size=input$fontSize)) +
-					scale_fill_gradient("Count", low = "grey100", high = "grey50") +
 					labs(title=paste("Distribution of ", tolower(XTitle()), sep="")) +
 					labs(x=XTitle(),y="Frequency")
+				if (input$color=="grey"){g <- g + scale_fill_gradient("Count", low = "white", high = "grey40")}
+				if (input$color=="cb"){g <- g + scale_fill_gradient("Count", low = "#DDDDFF", high = "#000066")}
+				if (input$color=="color"){g <- g + scale_fill_gradient("Count", low = "steelblue", high = "red")}
 				return(g)
 				}
 			if (is.factor(datasetInput()[[input$xvar]])){
-				ggplot(datasetInput(), aes(datasetInput()[[input$xvar]])) +
+				g <- ggplot(datasetInput(), aes(datasetInput()[[input$xvar]])) +
 						scale_x_discrete(name=XTitle()) + 
 						labs(title=paste("Distribution of ", tolower(XTitle()), sep="")) +
 						theme_bw() +
 						theme(plot.title = element_text(hjust=0.5, face="bold", size=round(input$fontSize*1.15)), legend.position="none", text=element_text(family=input$serif, size=input$fontSize)) +
-						geom_bar(position=position_dodge(), aes(fill=..count..)) +
-						scale_fill_gradient("Count", low = "grey75", high = "grey50")
+						geom_bar(position=position_dodge(), aes(fill=..count..))
+				if (input$color=="grey"){g <- g + scale_fill_gradient(XTitle(), low = "grey80", high = "grey40")}
+				if (input$color=="cb"){g <- g + scale_fill_gradient(XTitle(), low = "#AAAAFF", high = "#000066")}
+				if (input$color=="color"){g <- g + scale_fill_gradient(XTitle(), low = "steelblue", high = "red")}
+				return(g)
 				}
 			}
 		}
@@ -150,22 +162,28 @@ shinyServer(function(input, output) {
 				Ydata <- Ydata[Ydata>input$inYSlider[1] & Ydata<input$inYSlider[2]]
 				g <- ggplot() +
 					aes(Ydata) +
-					geom_histogram(aes(fill=..count..), col="black", alpha=.5, breaks=seq(min(Ydata, na.rm=TRUE), max(Ydata, na.rm=TRUE), l=input$inYBinSlider+1)) +
+					geom_histogram(aes(fill=..count..), col="black", alpha=.75, breaks=seq(min(Ydata, na.rm=TRUE), max(Ydata, na.rm=TRUE), l=input$inYBinSlider+1)) +
 					theme_bw() +
 					theme(plot.title = element_text(hjust = 0.5, face="bold", size=round(input$fontSize*1.15)), text=element_text(family=input$serif, size=input$fontSize)) +
-					scale_fill_gradient("Count", low = "grey100", high = "grey50") +
 					labs(title=paste("Distribution of ", tolower(YTitle()), sep="")) +
 					labs(x=YTitle(),y="Frequency")
+				if (input$color=="grey"){g <- g + scale_fill_gradient("Count", low = "white", high = "grey40")}
+				if (input$color=="cb"){g <- g + scale_fill_gradient("Count", low = "#DDDDFF", high = "#000066")}
+				if (input$color=="color"){g <- g + scale_fill_gradient("Count", low = "steelblue", high = "red")}
+				return(g)
 				return(g)
 				}
 			if (is.factor(datasetInput()[[input$yvar]])){
-				ggplot(datasetInput(), aes(datasetInput()[[input$yvar]])) +
+				g <- ggplot(datasetInput(), aes(datasetInput()[[input$yvar]])) +
 					scale_x_discrete(name=YTitle()) + 
 					labs(title=paste("Distribution of ", tolower(YTitle()), sep="")) +
 					theme_bw() +
 					theme(plot.title = element_text(hjust=0.5, face="bold", size=round(input$fontSize*1.15)), legend.position="none", text=element_text(family=input$serif, size=input$fontSize)) +
-					geom_bar(position=position_dodge(), aes(fill=..count..)) +
-					scale_fill_gradient("Count", low = "grey75", high = "grey50")
+					geom_bar(position=position_dodge(), aes(fill=..count..))
+				if (input$color=="grey"){g <- g + scale_fill_gradient(YTitle(), low = "grey80", high = "grey40")}
+				if (input$color=="cb"){g <- g + scale_fill_gradient(YTitle(), low = "#AAAAFF", high = "#000066")}
+				if (input$color=="color"){g <- g + scale_fill_gradient(YTitle(), low = "steelblue", high = "red")}
+				return(g)
 				}
 			}
 		else {invisible()}
@@ -183,7 +201,8 @@ shinyServer(function(input, output) {
 					)
 				}
 			else if (PlotType()=="Box plot:"){tagList(
-					checkboxInput("notchCheck", "Notches", FALSE)
+					checkboxInput("notchCheck", "Notches", FALSE),
+					radioButtons("violin", label="Visualisation style", choices=c("Boxplot", "Violin plot"="Violin", "Violin + boxplot"="ViolinBoxplot"), selected="Boxplot")
 					)
 				}
 			else if (PlotType()=="Scatter plot:"){tagList(
@@ -245,21 +264,72 @@ shinyServer(function(input, output) {
     Plotcode <- function(){
       if (!(is.null(PlotType()))){
         # create a boxplot if y variable is numeric and x variable is categorical
+		
         if (PlotType()=="Box plot:"){
 			keep    <- datasetInput()[ vals$keeprows, , drop = FALSE]
 			exclude <- datasetInput()[!vals$keeprows, , drop = FALSE]
 			mark <- datasetInput()[ vals$markcases, , drop = FALSE]
-			outPlot <- ggplot(keep, aes(keep[[input$xvar]], keep[[input$yvar]])) +
-				geom_boxplot(notch=input$notchCheck) +
-				geom_point(data = mark, aes(mark[[input$xvar]], mark[[input$yvar]]), shape = 4, color = "red", size=3, stroke=1.5, alpha = 0.75) +
-				geom_point(data = exclude, aes(exclude[[input$xvar]], exclude[[input$yvar]]), shape = 4, color = "black", size=2, alpha = 0.15) +
-				scale_x_discrete(name=input$xvar) + 
-				scale_y_continuous(name=input$yvar)+
-				ggtitle(input$titleInput)+
-				theme_bw()+
-				theme(plot.title = element_text(hjust=0.5, face="bold", size=round(input$fontSize*1.15)), text=element_text(family=input$serif, size=input$fontSize))
+			
+			if (input$violin == "Boxplot") {
+				outPlot <- ggplot(keep, aes(keep[[input$xvar]], keep[[input$yvar]])) +
+					geom_boxplot(notch=input$notchCheck) +
+					geom_point(data = mark, aes(mark[[input$xvar]], mark[[input$yvar]]), shape = 4, color = "red", size=3, stroke=1.5, alpha = 0.75) +
+					geom_point(data = exclude, aes(exclude[[input$xvar]], exclude[[input$yvar]]), shape = 4, color = "black", size=2, alpha = 0.15) +
+					scale_x_discrete(name=input$xvar) + 
+					scale_y_continuous(name=input$yvar)+
+					ggtitle(input$titleInput)+
+					theme_bw()+
+					theme(plot.title = element_text(hjust=0.5, face="bold", size=round(input$fontSize*1.15)), text=element_text(family=input$serif, size=input$fontSize))
+					
+			if (input$color=="grey"){outPlot <- outPlot + scale_fill_grey(input$xvar, start = 0.6, end = 1)}
+			if (input$color=="cb"){outPlot <- outPlot + scale_fill_manual(input$xvar, values=cbPalette)}
+			if (input$color=="color"){outPlot <- outPlot + scale_fill_hue(input$xvar)}
+					
+			}
+			
+			if (input$violin=="Violin") {
+				inliers <- rep(TRUE, length(keep[,1]))
+				bounds <- aggregate(keep[[input$yvar]], by=list(keep[[input$xvar]]), FUN=bx.stat)
+				for (level in levels(keep[[input$xvar]])) {inliers[keep[[input$xvar]]==level & (keep[[input$yvar]] < bounds[bounds[,1]==level,2][1]|keep[[input$yvar]] > bounds[bounds[,1]==level,2][2])] <- FALSE}
+				outPlot <- ggplot(keep, aes(keep[[input$xvar]], keep[[input$yvar]])) +
+					geom_violin(data=keep[inliers,], aes(keep[inliers, input$xvar], keep[inliers,input$yvar], fill=keep[inliers, input$xvar])) +
+					geom_point(data=keep[!inliers,], aes(keep[!inliers,input$xvar], keep[!inliers,input$yvar])) +
+					geom_point(data = mark, aes(mark[[input$xvar]], mark[[input$yvar]]), shape = 4, color = "red", size=3, stroke=1.5, alpha = 0.75) +
+					geom_point(data = exclude, aes(exclude[[input$xvar]], exclude[[input$yvar]]), shape = 4, color = "black", size=2, alpha = 0.15) +
+					scale_x_discrete(name=input$xvar) + 
+					scale_y_continuous(name=input$yvar)+
+					ggtitle(input$titleInput)+
+					theme_bw()+
+					theme(plot.title = element_text(hjust=0.5, face="bold", size=round(input$fontSize*1.15)), text=element_text(family=input$serif, size=input$fontSize))
+			if (input$color=="grey"){outPlot <- outPlot + scale_fill_grey(input$xvar, start = 0.6, end = 1)}
+			if (input$color=="cb"){outPlot <- outPlot + scale_fill_manual(input$xvar, values=cbPalette)}
+			if (input$color=="color"){outPlot <- outPlot + scale_fill_hue(input$xvar)}
+			}
+			
+			if (input$violin=="ViolinBoxplot") {
+				inliers <- rep(TRUE, length(keep[,1]))
+				bounds <- aggregate(keep[[input$yvar]], by=list(keep[[input$xvar]]), FUN=bx.stat)
+				for (level in levels(keep[[input$xvar]])) {inliers[keep[[input$xvar]]==level & (keep[[input$yvar]] < bounds[bounds[,1]==level,2][1]|keep[[input$yvar]] > bounds[bounds[,1]==level,2][2])] <- FALSE}
+				outPlot <- ggplot(keep, aes(keep[[input$xvar]], keep[[input$yvar]])) +
+					geom_violin(data=keep[inliers,], aes(keep[inliers,input$xvar], keep[inliers,input$yvar], fill=keep[inliers, input$xvar])) +
+					geom_boxplot(data=keep, width=0.1, notch=input$notchCheck) +
+					geom_point(data = mark, aes(mark[[input$xvar]], mark[[input$yvar]]), shape = 4, color = "red", size=3, stroke=1.5, alpha = 0.75) +
+					geom_point(data = exclude, aes(exclude[[input$xvar]], exclude[[input$yvar]]), shape = 4, color = "black", size=2, alpha = 0.15) +
+					scale_x_discrete(name=input$xvar) + 
+					scale_y_continuous(name=input$yvar)+
+					ggtitle(input$titleInput)+
+					theme_bw()+
+					theme(plot.title = element_text(hjust=0.5, face="bold", size=round(input$fontSize*1.15)), text=element_text(family=input$serif, size=input$fontSize))				
+					
+			if (input$color=="grey"){outPlot <- outPlot + scale_fill_grey(input$xvar, start = 0.6, end = 1)}
+			if (input$color=="cb"){outPlot <- outPlot + scale_fill_manual(input$xvar, values=cbPalette)}
+			if (input$color=="color"){outPlot <- outPlot + scale_fill_hue(input$xvar)}
+			}
+			
 			return(outPlot)
         }
+		
+		
         # create a scatterplot if y variable is numeric and x variable is numeric
         if (PlotType()=="Scatter plot:"){
 			keep    <- datasetInput()[ vals$keeprows, , drop = FALSE]
@@ -286,8 +356,10 @@ shinyServer(function(input, output) {
 					scale_x_discrete(name=XTitle()) + 
 					ggtitle(input$titleInput)+
 					theme_bw()+
-					scale_fill_grey(start=0.2, end=0.9, name = YTitle()) +
 					theme(plot.title = element_text(hjust=0.5, face="bold", size=round(input$fontSize*1.15)), text=element_text(family=input$serif, size=input$fontSize))
+				if (input$color=="grey"){outPlot <- outPlot + scale_fill_grey(YTitle(), start = 0.3, end = 0.8)}
+				if (input$color=="cb"){outPlot <- outPlot + scale_fill_manual(YTitle(), values=cbPalette)}
+				if (input$color=="color"){outPlot <- outPlot + scale_fill_hue(YTitle())}
 				if (input$besideCheck==TRUE){
 					outPlot <- outPlot + geom_bar(position=position_dodge())
 					}	
@@ -301,8 +373,10 @@ shinyServer(function(input, output) {
 					scale_x_discrete(name=XTitle()) + 
 					ggtitle(input$titleInput) +
 					theme_bw()+
-					scale_fill_grey(start=0.2, end=0.9, name = YTitle()) +
 					theme(plot.title = element_text(hjust=0.5, face="bold", size=round(input$fontSize*1.15)), text=element_text(family=input$serif, size=input$fontSize))
+				if (input$color=="grey"){outPlot <- outPlot + scale_fill_grey(YTitle(), start = 0.3, end = 0.8)}
+				if (input$color=="cb"){outPlot <- outPlot + scale_fill_manual(YTitle(), values=cbPalette)}
+				if (input$color=="color"){outPlot <- outPlot + scale_fill_hue(YTitle())}
 				if (input$besideCheck==TRUE){
 					outPlot <- outPlot + geom_bar(position=position_dodge())
 					}	
