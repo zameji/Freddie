@@ -1,7 +1,8 @@
 library(shiny)
+library(shinythemes)
 shinyUI(fluidPage(
-  theme="theme.css",
-  tags$head(tags$link(rel = "shortcut icon", href = "favicon.ico"))
+  theme=shinythemes("spacelab"),
+  tags$head(tags$link(rel = "shortcut icon", href = "favicon.ico")),
   div(class="header", style="color: #004a99, font-weight: bold; align-content: center;", 
 	titlePanel("",windowTitle="FREDDIE Shiny")
   ),
