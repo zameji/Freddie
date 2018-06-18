@@ -1,6 +1,7 @@
 library(shiny)
 shinyUI(fluidPage(
   theme="theme.css",
+  tags$head(tags$link(rel = "shortcut icon", href = "favicon.ico"))
   div(class="header", style="color: #004a99, font-weight: bold; align-content: center;", 
 	titlePanel("",windowTitle="FREDDIE Shiny")
   ),
