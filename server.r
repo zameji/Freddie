@@ -345,7 +345,8 @@ shinyServer(function(input, output) {
 				theme_bw()+
 				theme(plot.title = element_text(hjust=0.5, face="bold", size=round(input$fontSize*1.15)), text=element_text(family=input$serif, size=input$fontSize))
 			if (input$regrCheck==TRUE){
-				outPlot <- outPlot + geom_smooth(method=lm, se=input$regrSE)
+				if (input$color=="grey"){outPlot <- outPlot + geom_smooth(method=lm, se=input$regrSE, color="black", fill="grey50")}
+				else {outPlot <- outPlot + geom_smooth(method=lm, se=input$regrSE)}
 				}
 			return(outPlot)		
         }
@@ -396,7 +397,8 @@ shinyServer(function(input, output) {
 				theme_bw()+
 				theme(plot.title = element_text(hjust=0.5, face="bold", size=round(input$fontSize*1.15)), text=element_text(family=input$serif, size=input$fontSize))				
 			if (input$regrCheck==TRUE){
-				outPlot <- outPlot + stat_smooth(method="glm", method.args = list(family="binomial"),formula=y~x, se=input$regrSE)
+				if (input$color == "grey") {outPlot <- outPlot + stat_smooth(method="glm", method.args = list(family="binomial"), formula=y~x, se=input$regrSE, color="black", fill="grey50")}
+				else {outPlot <- outPlot + stat_smooth(method="glm", method.args = list(family="binomial"), formula=y~x, se=input$regrSE)}
 				}
 			return(outPlot)	
 			}
