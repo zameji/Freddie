@@ -39,7 +39,6 @@ div(class = "busy",
 		)
 	  ),			   
       conditionalPanel(condition = "Output.sum",
-                       h3("Variable selection:"),
                        uiOutput("varselector")
 					   ),
 	  h3("General plot settings:"),
@@ -86,17 +85,18 @@ div(class = "busy",
 				), 
 				tabPanel("Plot", 
 					plotOutput("Plot", 
-						click = "plot1_click",
 						brush = brushOpts(
 							id = "plot1_brush"
-						)),
+						),
+						click = "plot1_click"
+						),
 					hr(),
 					uiOutput("OutlierFilter"),
 					h3("Figure settings:"),
 					fluidRow(
 						column(6,
 							conditionalPanel(condition = "output.PlotType",
-								textInput(inputId="titleInput", label='Title', value = "")
+								textInput(inputId="titleInput", label='Title', value = " ")
 								),
 							conditionalPanel(condition = "output.PlotType",
 								downloadButton("downloadData", 'Download figure')

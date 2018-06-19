@@ -6,6 +6,7 @@ options(shiny.usecairo=FALSE)
 
 bx.stat <- function(inp){return(boxplot.stats(inp)$stats[c(1,5)])}
 cbPalette <- c("#999999", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
+fl_cl <- function(inp){return(c(floor(inp[1]),ceiling(inp[2])))}
 
 shinyServer(function(input, output) {
 	datafileInput <- reactive({
@@ -15,45 +16,43 @@ shinyServer(function(input, output) {
 		  read.csv(inFile$datapath, header=input$header, sep=input$sep, 
 				   quote=input$quote)
 		})
+		
 	datasetInput <- reactive({
-		if (is.null(datafileInput()) == FALSE) {
-			dataset <- data.frame(lapply(names(datafileInput()), function (variable) {
-				if (is.factor(datafileInput()[[variable]]) == TRUE & input[[paste(variable, "type", sep="_")]] == "category") {datafileInput()[[variable]]}
-				else if (is.numeric(datafileInput()[[variable]]) == TRUE & input[[paste(variable, "type", sep="_")]] == "number") {datafileInput()[[variable]]}
-				else if (is.factor(datafileInput()[[variable]]) == TRUE & input[[paste(variable, "type", sep="_")]] == "number") {as.numeric(as.character(datafileInput()[[variable]]))}
-				else if (is.numeric(datafileInput()[[variable]]) == TRUE & input[[paste(variable, "type", sep="_")]] == "category") {as.factor(datafileInput()[[variable]])}
-				}			
+			req(datafileInput())
+			lapply(names(datafileInput()), function (variable) {req(input[[paste(variable, "type", sep="_")]])})
+				dataset <- data.frame(lapply(names(datafileInput()), function (variable) {
+					if (is.factor(datafileInput()[[variable]]) == TRUE & input[[paste(variable, "type", sep="_")]] == "category") {datafileInput()[[variable]]}
+					else if (is.numeric(datafileInput()[[variable]]) == TRUE & input[[paste(variable, "type", sep="_")]] == "number") {datafileInput()[[variable]]}
+					else if (is.factor(datafileInput()[[variable]]) == TRUE & input[[paste(variable, "type", sep="_")]] == "number") {as.numeric(as.character(datafileInput()[[variable]]))}
+					else if (is.numeric(datafileInput()[[variable]]) == TRUE & input[[paste(variable, "type", sep="_")]] == "category") {as.factor(datafileInput()[[variable]])}
+					}			
+					)
 				)
-			)
-			colnames(dataset) <- names(datafileInput())
-			return(dataset)
-		}
-		else {NULL}
+				colnames(dataset) <- names(datafileInput())
+				return(dataset)
 		})
 	
     output$sum <- renderPrint({
-		if(is.null(datafileInput()) == FALSE){
-			summaryOutput <- summary(datasetInput())
-			if(length(summaryOutput)==3){invisible()} 
-			else {summaryOutput}}
-		else {invisible()}
+		req(datasetInput())
+		summaryOutput <- summary(datasetInput())
+		if(length(summaryOutput)==3){invisible()} 
+		else {summaryOutput}
     })
+	
 	output$overrider <- renderUI({
-		if (is.null(datafileInput()) == FALSE){
-			tagList(
-				lapply (names(datafileInput()), function (variable) {
-						if (is.factor(datafileInput()[[variable]])) {radioButtons(paste(variable, "type", sep="_"), variable,	choices = c("category", "number"), selected = "category")}
-						else {radioButtons(paste(variable, "type", sep="_"), variable,	choices = c("category", "number"), selected = "number")} 
-						}
-					)
+		req(datafileInput())
+		tagList(
+			lapply (names(datafileInput()), function (variable) {
+					if (is.factor(datafileInput()[[variable]])) {radioButtons(paste(variable, "type", sep="_"), variable,	choices = c("category", "number"), selected = "category")}
+					else {radioButtons(paste(variable, "type", sep="_"), variable,	choices = c("category", "number"), selected = "number")} 
+					}
 				)
-			}
-		else {invisible()}
+			)
 		})
 	vals <- reactiveValues(keeprows=TRUE, markcases=FALSE)
 
 	output$help <- renderUI({
-		if (is.null(datafileInput()) == TRUE) {
+		if (is.null(datafileInput())){
 				tagList(h3("Welcome to FREDDIE Shiny!"),
 							h4("How to use it"),
 							HTML('FREDDIE Shiny is an interface to allow you simple quantitative analyses of your data. In order to use it, you will need a dataset in the CSV format.
@@ -85,45 +84,48 @@ shinyServer(function(input, output) {
 								</ol>')
 				)
 			}
-		else {invisible()}
+			else {invisible()}
 		})
     output$varselector <- renderUI({
-		if (is.null(datafileInput()) == FALSE){
+		req(datafileInput())
 		  tagList(
+		    h3("Variable selection:"),
 			selectInput(inputId="yvar", label="dependent variable (y axis):", 
 						choices = names(datafileInput()), selected=names(datafileInput())[[2]]),
 			selectInput(inputId="xvar", label="independent variable (x axis):", 
-						choices = names(datafileInput()), selected=names(datafileInput())[[1]])        
-		  )}
-		else {invisible()}
+						choices = names(datafileInput()), selected=names(datafileInput())[[1]])
+			)
     })
     PlotType <- reactive({
-	 if (is.null(datasetInput())==FALSE){
       if (is.numeric(datasetInput()[[input$yvar]]) & is.factor(datasetInput()[[input$xvar]])){return("Box plot:")}
       if (is.numeric(datasetInput()[[input$yvar]]) & is.numeric(datasetInput()[[input$xvar]])){return("Scatter plot:")}
       if (is.factor(datasetInput()[[input$yvar]]) & is.factor(datasetInput()[[input$xvar]])){return("Bar plot:")}
-	  if (is.factor(datasetInput()[[input$yvar]]) & length(levels(datasetInput()[[input$yvar]]))==2 & is.numeric(datasetInput()[[input$xvar]])){return("LogReg plot:")}}
-	  else {NULL}
-	
+	  if (is.factor(datasetInput()[[input$yvar]]) & length(levels(datasetInput()[[input$yvar]]))==2 & is.numeric(datasetInput()[[input$xvar]])){return("LogReg plot:")}
+	  else {return("notimplemented")}
 	})
-	XTitle <- reactive({if(is.null(datasetInput()) == FALSE){paste(input$xvar)}})
-	YTitle <- reactive({if(is.null(datasetInput()) == FALSE){paste(input$yvar)}})
+	
+	XTitle <- reactive({
+		req(input$xvar)
+		paste(input$xvar)
+		})
+	YTitle <- reactive({
+		req(input$yvar)
+		paste(input$yvar)
+		})
+	
     output$Xsettings <- renderUI({
-		if(is.null(datasetInput()) == FALSE){
 			if(is.numeric(datasetInput()[[input$xvar]]) != TRUE) {invisible()} else {tagList(
-				 sliderInput("inXSlider", "Range of values in histogram", min=range(datasetInput()[[input$xvar]], na.rm=TRUE)[1], max=range(datasetInput()[[input$xvar]], na.rm=TRUE)[2], value=range(datasetInput()[[input$xvar]], na.rm=TRUE)),
+				 sliderInput("inXSlider", "Range of values in histogram", min=floor(range(datasetInput()[[input$xvar]], na.rm=TRUE)[1]), max=ceiling(range(datasetInput()[[input$xvar]], na.rm=TRUE)[2]), value=fl_cl(range(datasetInput()[[input$xvar]], na.rm=TRUE))),
 				 sliderInput("inXBinSlider", "Number of bars displayed in histogram", min=5, max=25, value=10)
-					)}
-		}
+				 )}
 	})
     output$Ysettings <- renderUI({
-		if(is.null(datasetInput()) == FALSE){
 			if(is.numeric(datasetInput()[[input$yvar]]) != TRUE) {invisible()} else {tagList(
-				sliderInput("inYSlider", "Range of values in histogram", min=range(datasetInput()[[input$yvar]], na.rm=TRUE)[1], max=range(datasetInput()[[input$yvar]], na.rm=TRUE)[2], value=range(datasetInput()[[input$yvar]], na.rm=TRUE)),
+				sliderInput("inYSlider", "Range of values in histogram", min=floor(range(datasetInput()[[input$yvar]], na.rm=TRUE)[1]), max=ceiling(range(datasetInput()[[input$yvar]], na.rm=TRUE)[2]), value=fl_cl(range(datasetInput()[[input$yvar]], na.rm=TRUE))),
 				sliderInput("inYBinSlider", "Number of bars displayed in histogram", min=5, max=25, value=10)
-					)}
-		}
+				)}
 	})
+
 	SummaryPlotX <- function(){
 		if (!is.null(datasetInput()==TRUE)){
 			if (is.numeric(datasetInput()[[input$xvar]])){
@@ -251,21 +253,15 @@ shinyServer(function(input, output) {
 					}
 			else {invisible()}
 			}
-		})
-    # dataobject <- reactive({
-      # if (PlotType()=="Bar plot:"){
-        # datatabletemp <- table(datasetInput()[[input$yvar]], datasetInput()[[input$xvar]])
-        # if(input$propCheck=="relative"){
-          # datatabletemp <- prop.table(table(datasetInput()[[input$yvar]], datasetInput()[[input$xvar]]), 2)
-        # }
-        # datatabletemp
-      # }
-    # })	
+		})	
+	
+	
     Plotcode <- function(){
-      if (!(is.null(PlotType()))){
-        # create a boxplot if y variable is numeric and x variable is categorical
-		
+		req(PlotType(), vals)
+        # create a boxplot if y variable is numeric and x variable is categorical		
         if (PlotType()=="Box plot:"){
+			req(input$xvar, input$yvar, input$color, input$serif, input$fontSize)
+			req(input$violin)
 			keep    <- datasetInput()[ vals$keeprows, , drop = FALSE]
 			exclude <- datasetInput()[!vals$keeprows, , drop = FALSE]
 			mark <- datasetInput()[ vals$markcases, , drop = FALSE]
@@ -329,9 +325,9 @@ shinyServer(function(input, output) {
 			return(outPlot)
         }
 		
-		
         # create a scatterplot if y variable is numeric and x variable is numeric
         if (PlotType()=="Scatter plot:"){
+			req(input$xvar, input$yvar, input$color, input$serif, input$fontSize)
 			keep    <- datasetInput()[ vals$keeprows, , drop = FALSE]
 			exclude <- datasetInput()[!vals$keeprows, , drop = FALSE]	
 			mark <- datasetInput()[ vals$markcases, , drop = FALSE]
@@ -352,6 +348,8 @@ shinyServer(function(input, output) {
         }
         # create a barplot if y variable is categorical and x variable is categorical
         if (PlotType()=="Bar plot:"){
+			req(input$propCheck,input$besideCheck|!input$besideCheck,input$leg|!input$leg)
+			req(input$xvar, input$yvar, input$color, input$serif, input$fontSize)
 			if (input$propCheck=="absolute"){
 				outPlot <- ggplot(datasetInput(), aes(datasetInput()[[input$xvar]], fill=datasetInput()[[input$yvar]])) +
 					scale_x_discrete(name=XTitle()) + 
@@ -389,6 +387,10 @@ shinyServer(function(input, output) {
 				return(outPlot)	
 				}
 		if (PlotType()=="LogReg plot:") {
+			req(!is.null(input$regrCheck))
+			req(!is.null(input$regrSE))
+			req(input$xvar, input$yvar, input$color, input$serif, input$fontSize)
+
 			outPlot <- ggplot(datasetInput(),aes(datasetInput()[[input$xvar]],as.numeric(datasetInput()[[input$yvar]])-1)) +
 				geom_point(position="identity") +
 				scale_x_continuous(name=XTitle()) + 
@@ -402,23 +404,27 @@ shinyServer(function(input, output) {
 				}
 			return(outPlot)	
 			}
-		else {outPlot <- NULL}	
-			return(outPlot)
-        }
+		else {outPlot <- "notimplemented"}	
+			return(ggplot()+theme_classic())
       }
+	  
 	# Toggle points that are clicked
-	observeEvent(input$plot1_click, {
-		res <- nearPoints(datasetInput(), input$plot1_click, xvar=input$xvar, yvar=input$yvar, allRows = TRUE)
-		vals$markcases <- vals$markcases | res$selected_
-	})
 	observeEvent(input$exclude_toggle, {
+		req(Plotcode(), vals)
 		res <- brushedPoints(datasetInput(), input$plot1_brush, xvar=input$xvar, yvar=input$yvar, allRows = TRUE)
 		vals$markcases <- vals$markcases | res$selected_
 	})
+	observeEvent(input$plot1_click, {
+		req(Plotcode(), vals)
+		res <- nearPoints(datasetInput(), input$plot1_click, xvar=input$xvar, yvar=input$yvar, allRows = TRUE)
+		vals$markcases <- vals$markcases | res$selected_
+	})
 	observeEvent(input$apply_removal, {
+		req(Plotcode(), vals)
 		vals$keeprows <- vals$keeprows & !vals$markcases
 		vals$markcases <- FALSE
 	})
+	
 	# Reset all points
 	observeEvent(input$exclude_reset, {
 		vals$keeprows <- TRUE
@@ -433,9 +439,10 @@ shinyServer(function(input, output) {
 		vals$markcases <- FALSE
 		})
     output$Plot <- renderPlot({
-      if (is.null(Plotcode())!= TRUE) {Plotcode()
-	  } else {plot(datasetInput()[[input$yvar]] ~ datasetInput()[[input$xvar]])}
+	  req(PlotType())
+	  Plotcode()
     })
+	
 	output$SumPlotX <- renderPlot({
       SummaryPlotX()
     })
@@ -455,7 +462,6 @@ shinyServer(function(input, output) {
     )
 # DETERMINE THE TYPE OF TEST USED   
 	TestType <- reactive({
-	if (!(is.null(PlotType()))){
 		keep    <- datasetInput()[ vals$keeprows, , drop = FALSE]
 		if (PlotType()=="Box plot:" & length(levels(keep[[input$xvar]]))==2 ){
 			return("t")} #TTEST
@@ -474,8 +480,9 @@ shinyServer(function(input, output) {
 				return("chisq")}#CHISQ
 			if (range(table(keep[[input$yvar]], keep[[input$xvar]]))[1] <= 5) {	
 				return("fisher")}#FISHER
-			}}
-	else {return("none")}
+			}
+		else {return("none")}
+
 	})
 # CHOOSE SETTINGS TO DISPLAY DEPENDING ON THE TYPE OF TEST USED
 	output$TestSettings <- renderUI({
@@ -501,7 +508,6 @@ shinyServer(function(input, output) {
 		})
 ###TESTCODE NEEDS TO BE SPLIT INTO TEST-DEFINING CODE AND TEXT EXECUTING CODE TO AVOID ISSUES WITH RESETTING
     Testcode <- reactive({
-      if (!(is.null(PlotType()))){
 		keep    <- datasetInput()[ vals$keeprows, , drop = FALSE]
 	  	CurrentTestType <- TestType()
         # t-test logic for numeric-categorial (two levels): if parameters fulfilled, do t-test, if not, do Wilcoxon-Mann-Whitney
@@ -660,9 +666,9 @@ shinyServer(function(input, output) {
 				})
 			output$Signalert <- renderText({""})
 			output$Pvalue <- renderText({""})
+			results <- invisible()
 			}
         return(results)
-		}
     })
     output$Testresults <- renderPrint({
       Testcode()
