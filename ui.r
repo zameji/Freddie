@@ -1,11 +1,19 @@
 library(shiny)
 shinyUI(fluidPage(
   #theme=shinythemes("spacelab"),
-  tags$head(tags$link(rel = "shortcut icon", href = "favicon.ico")),
+  tags$head(tags$link(rel = "shortcut icon", href = "favicon.ico"),
+  tags$link(rel="stylesheet", type="text/css",href="style.css"),
+  tags$script(type="text/javascript", src = "busy.js")
+  ),
   div(class="header", style="color: #004a99, font-weight: bold; align-content: center;", 
 	titlePanel("",windowTitle="FREDDIE Shiny")
   ),
+div(class = "busy",  
+      p("Calculation in progress.."), 
+      img(src="busy_icon1.gif")
+	),
   sidebarLayout(
+  
     sidebarPanel(width = 3,
       h3("Data:"),
       fileInput(inputId='file1', label='Choose CSV File with your data',
