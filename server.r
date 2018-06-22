@@ -128,6 +128,7 @@ shinyServer(function(input, output) {
 	SummaryPlotX <- function(){
 		if (!is.null(datasetInput()==TRUE)){
 			if (is.numeric(datasetInput()[[input$xvar]])){
+				req(input$inXSlider, input$inXBinSlider)
 				Xdata <- datasetInput()[[input$xvar]]
 				Xdata <- Xdata[Xdata>input$inXSlider[1] & Xdata<input$inXSlider[2]]
 				g <- ggplot() +
@@ -159,6 +160,7 @@ shinyServer(function(input, output) {
 	SummaryPlotY <- function(){
 		if (!is.null(datasetInput()==TRUE)){
 			if (is.numeric(datasetInput()[[input$yvar]])){
+				req(input$inYSlider, input$inYBinSlider)
 				Ydata <- datasetInput()[[input$yvar]]
 				Ydata <- Ydata[Ydata>input$inYSlider[1] & Ydata<input$inYSlider[2]]
 				g <- ggplot() +
