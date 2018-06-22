@@ -16,6 +16,40 @@ shinyServer(function(input, output) {
 		  read.csv(inFile$datapath, header=input$header, sep=input$sep, 
 				   quote=input$quote)
 		})
+
+	output$help <- renderUI({
+		req(!is.null(datafileInput()))
+				tagList(h3("Welcome to FREDDIE Shiny!"),
+							h4("How to use it"),
+							HTML('FREDDIE Shiny is an interface to allow you simple quantitative analyses of your data. In order to use it, you will need a dataset in the CSV format.
+								For practice you can get some data <a href="https://1drv.ms/u/s!AiIxNMjRmvCLj-cpj0yUHcS9uDSLCQ">here</a>.'),
+							p("The interface loads after you uploaded the dataset. If it displays errors, make sure that you select the correct settings for 'Separator', 'Quote sign' and 'Header' with respect to the CSV file you uploaded."),
+							p("Once everything is ready, use the 'Data summary' tab to check that the individual variables were correctly recognized as categories or numbers."),
+							h4("Creating plots"),
+							p("Plots can be created in the tabs 'Variable summary' and 'Plot', depending whether you want to plot the distribution of one of your variables on its own or the relationship between your dependent and independent variables.
+								The plot type is selected automatically and depends on the type of variable used. Still you have some options to determine the exact visuals of most of the plots. The plots used include:"),
+							HTML('<ul>
+								<li><a href="https://en.wikipedia.org/wiki/Histogram">Histogram</a></li>
+								<li><a href="https://en.wikipedia.org/wiki/Box_plot">Boxplot</a>/<a href="https://en.wikipedia.org/wiki/Violin_plot">Violin plot</a></li>
+								<li><a href="https://en.wikipedia.org/wiki/Scatter_plot">Scatterplot</a></li>
+								<li><a href="https://en.wikipedia.org/wiki/Bar_chart">Bar chart</a></li>
+								</ul>'),
+							h4("Statistical testing"),
+							p("Statistical tests are automated as far as possible, so you should not make any grave mistakes. Still, some of them require some input from you. This is always described together with the test in the correspondig tab"),
+							h4("Procedure"),
+							HTML('<ol>
+								<li>Load your data in CSV format</li>
+								<li>Verify that FREDDIE imported the data correctly, if not adjust the necessary settings.</li>
+								<li>Choose your <b>independent (predicting) variable</b> - usually something like "age" or "gender"</li>
+								<li>Choose your <b>dependent (predicted) variable</b> - usually something like "points" or "frequency"</li>
+								<li>Explore the distribution of the variables on their own</li>
+								<li>Look at their relationship</li>
+								<li>If there are <a href="https://en.wikipedia.org/wiki/Outlier">outliers</a> in the data, use the outlier removal function to exclude them. <b> Only click the "Apply" button once!</b></li>
+								<li>Adjust the settings of the selected statistical test, if needed.</li>
+								<li>View the results of the test. Is there a significant relationship/difference?</li>
+								</ol>')
+				)
+		})
 		
 	datasetInput <- reactive({
 			req(datafileInput())
@@ -51,41 +85,6 @@ shinyServer(function(input, output) {
 		})
 	vals <- reactiveValues(keeprows=TRUE, markcases=FALSE)
 
-	output$help <- renderUI({
-		if (is.null(datafileInput())){
-				tagList(h3("Welcome to FREDDIE Shiny!"),
-							h4("How to use it"),
-							HTML('FREDDIE Shiny is an interface to allow you simple quantitative analyses of your data. In order to use it, you will need a dataset in the CSV format.
-								For practice you can get some data <a href="https://1drv.ms/u/s!AiIxNMjRmvCLj-cpj0yUHcS9uDSLCQ">here</a>.'),
-							p("The interface loads after you uploaded the dataset. If it displays errors, make sure that you select the correct settings for 'Separator', 'Quote sign' and 'Header' with respect to the CSV file you uploaded."),
-							p("Once everything is ready, use the 'Data summary' tab to check that the individual variables were correctly recognized as categories or numbers."),
-							h4("Creating plots"),
-							p("Plots can be created in the tabs 'Variable summary' and 'Plot', depending whether you want to plot the distribution of one of your variables on its own or the relationship between your dependent and independent variables.
-								The plot type is selected automatically and depends on the type of variable used. Still you have some options to determine the exact visuals of most of the plots. The plots used include:"),
-							HTML('<ul>
-								<li><a href="https://en.wikipedia.org/wiki/Histogram">Histogram</a></li>
-								<li><a href="https://en.wikipedia.org/wiki/Box_plot">Boxplot</a>/<a href="https://en.wikipedia.org/wiki/Violin_plot">Violin plot</a></li>
-								<li><a href="https://en.wikipedia.org/wiki/Scatter_plot">Scatterplot</a></li>
-								<li><a href="https://en.wikipedia.org/wiki/Bar_chart">Bar chart</a></li>
-								</ul>'),
-							h4("Statistical testing"),
-							p("Statistical tests are automated as far as possible, so you should not make any grave mistakes. Still, some of them require some input from you. This is always described together with the test in the correspondig tab"),
-							h4("Procedure"),
-							HTML('<ol>
-								<li>Load your data in CSV format</li>
-								<li>Verify that FREDDIE imported the data correctly, if not adjust the necessary settings.</li>
-								<li>Choose your <b>independent (predicting) variable</b> - usually something like "age" or "gender"</li>
-								<li>Choose your <b>dependent (predicted) variable</b> - usually something like "points" or "frequency"</li>
-								<li>Explore the distribution of the variables on their own</li>
-								<li>Look at their relationship</li>
-								<li>If there are <a href="https://en.wikipedia.org/wiki/Outlier">outliers</a> in the data, use the outlier removal function to exclude them. <b> Only click the "Apply" button once!</b></li>
-								<li>Adjust the settings of the selected statistical test, if needed.</li>
-								<li>View the results of the test. Is there a significant relationship/difference?</li>
-								</ol>')
-				)
-			}
-			else {invisible()}
-		})
     output$varselector <- renderUI({
 		req(datafileInput())
 		  tagList(
