@@ -18,7 +18,7 @@ shinyServer(function(input, output) {
 		})
 
 	output$help <- renderUI({
-		req(!is.null(datafileInput()))
+		req(is.null(datafileInput()))
 				tagList(h3("Welcome to FREDDIE Shiny!"),
 							h4("How to use it"),
 							HTML('FREDDIE Shiny is an interface to allow you simple quantitative analyses of your data. In order to use it, you will need a dataset in the CSV format.
