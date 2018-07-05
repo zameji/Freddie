@@ -42,7 +42,7 @@ div(class = "busy",
                        uiOutput("varselector")
 					   ),
 	  h3("General plot settings:"),
-	  fluidRow(column(6, radioButtons(inputId='color', label='Color', c("Greyscale"="grey", "Colorblind-friendly"="cb", "Color"="color"), "grey")
+	  fluidRow(column(6, radioButtons(inputId='color', label='Color', c("Greyscale"="grey", "Colorblind-friendly"="cb", "Color"="color", "None"="no"), "grey")
 		),
 	  column(6,radioButtons(inputId='serif', label='Font type',
 		   c("Serif"="serif",

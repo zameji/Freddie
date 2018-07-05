@@ -1,7 +1,7 @@
 library(shiny)
 library(lmtest)
 library(ggplot2)
-library(Cairo)
+#library(Cairo)
 options(shiny.usecairo=FALSE)
 
 bx.stat <- function(inp){return(boxplot.stats(inp)$stats[c(1,5)])}
@@ -133,14 +133,18 @@ shinyServer(function(input, output) {
 				Xdata <- Xdata[Xdata>input$inXSlider[1] & Xdata<input$inXSlider[2]]
 				g <- ggplot() +
 					aes(Xdata) +
-					geom_histogram(aes(fill=..count..), col="black", alpha=.5, breaks=seq(min(Xdata, na.rm=TRUE), max(Xdata, na.rm=TRUE), l=input$inXBinSlider+1)) +
 					theme_bw() +
 					theme(plot.title = element_text(hjust = 0.5, face="bold", size=round(input$fontSize*1.15)), text=element_text(family=input$serif, size=input$fontSize)) +
 					labs(title=paste("Distribution of ", tolower(XTitle()), sep="")) +
 					labs(x=XTitle(),y="Frequency")
+					
+				if (input$color!="no"){g <- g + geom_histogram(aes(fill=..count..), col="black", alpha=.75, breaks=seq(min(Xdata, na.rm=TRUE), max(Xdata, na.rm=TRUE), l=input$inXBinSlider+1))}
+				if (input$color=="no"){g <- g + geom_histogram(fill="white", col="black", alpha=.9, breaks=seq(min(Xdata, na.rm=TRUE), max(Xdata, na.rm=TRUE), l=input$inXBinSlider+1))}					
+					
 				if (input$color=="grey"){g <- g + scale_fill_gradient("Count", low = "white", high = "grey40")}
 				if (input$color=="cb"){g <- g + scale_fill_gradient("Count", low = "#DDDDFF", high = "#000066")}
 				if (input$color=="color"){g <- g + scale_fill_gradient("Count", low = "steelblue", high = "red")}
+				
 				return(g)
 				}
 			if (is.factor(datasetInput()[[input$xvar]])){
@@ -148,11 +152,14 @@ shinyServer(function(input, output) {
 						scale_x_discrete(name=XTitle()) + 
 						labs(title=paste("Distribution of ", tolower(XTitle()), sep="")) +
 						theme_bw() +
-						theme(plot.title = element_text(hjust=0.5, face="bold", size=round(input$fontSize*1.15)), legend.position="none", text=element_text(family=input$serif, size=input$fontSize)) +
-						geom_bar(position=position_dodge(), aes(fill=..count..))
+						theme(plot.title = element_text(hjust=0.5, face="bold", size=round(input$fontSize*1.15)), legend.position="none", text=element_text(family=input$serif, size=input$fontSize))
+				if (input$color!="no"){g <- g + geom_bar(position=position_dodge(), aes(fill=..count..))}
+				if (input$color=="no"){g <- g + geom_bar(position=position_dodge(), fill="white", col="black")}
+				
 				if (input$color=="grey"){g <- g + scale_fill_gradient(XTitle(), low = "grey80", high = "grey40")}
 				if (input$color=="cb"){g <- g + scale_fill_gradient(XTitle(), low = "#AAAAFF", high = "#000066")}
 				if (input$color=="color"){g <- g + scale_fill_gradient(XTitle(), low = "steelblue", high = "red")}
+
 				return(g)
 				}
 			}
@@ -165,14 +172,17 @@ shinyServer(function(input, output) {
 				Ydata <- Ydata[Ydata>input$inYSlider[1] & Ydata<input$inYSlider[2]]
 				g <- ggplot() +
 					aes(Ydata) +
-					geom_histogram(aes(fill=..count..), col="black", alpha=.75, breaks=seq(min(Ydata, na.rm=TRUE), max(Ydata, na.rm=TRUE), l=input$inYBinSlider+1)) +
 					theme_bw() +
 					theme(plot.title = element_text(hjust = 0.5, face="bold", size=round(input$fontSize*1.15)), text=element_text(family=input$serif, size=input$fontSize)) +
-					labs(title=paste("Distribution of ", tolower(YTitle()), sep="")) +
+					labs(title=paste("Distribution of ", tolower(YTitle()), sep=""))
 					labs(x=YTitle(),y="Frequency")
+				if (input$color!="no"){g <- g + geom_histogram(aes(fill=..count..), col="black", alpha=.75, breaks=seq(min(Ydata, na.rm=TRUE), max(Ydata, na.rm=TRUE), l=input$inYBinSlider+1))}
+				if (input$color=="no"){g <- g + geom_histogram(fill="white", col="black", alpha=.9, breaks=seq(min(Ydata, na.rm=TRUE), max(Ydata, na.rm=TRUE), l=input$inYBinSlider+1))}
+				
 				if (input$color=="grey"){g <- g + scale_fill_gradient("Count", low = "white", high = "grey40")}
 				if (input$color=="cb"){g <- g + scale_fill_gradient("Count", low = "#DDDDFF", high = "#000066")}
 				if (input$color=="color"){g <- g + scale_fill_gradient("Count", low = "steelblue", high = "red")}
+
 				return(g)
 				return(g)
 				}
@@ -181,11 +191,14 @@ shinyServer(function(input, output) {
 					scale_x_discrete(name=YTitle()) + 
 					labs(title=paste("Distribution of ", tolower(YTitle()), sep="")) +
 					theme_bw() +
-					theme(plot.title = element_text(hjust=0.5, face="bold", size=round(input$fontSize*1.15)), legend.position="none", text=element_text(family=input$serif, size=input$fontSize)) +
-					geom_bar(position=position_dodge(), aes(fill=..count..))
+					theme(plot.title = element_text(hjust=0.5, face="bold", size=round(input$fontSize*1.15)), legend.position="none", text=element_text(family=input$serif, size=input$fontSize))
+				if (input$color!="no"){g <- g + geom_bar(position=position_dodge(), aes(fill=..count..))}
+				if (input$color=="no"){g <- g + geom_bar(position=position_dodge(), fill="white", col="black")}
+				
 				if (input$color=="grey"){g <- g + scale_fill_gradient(YTitle(), low = "grey80", high = "grey40")}
 				if (input$color=="cb"){g <- g + scale_fill_gradient(YTitle(), low = "#AAAAFF", high = "#000066")}
 				if (input$color=="color"){g <- g + scale_fill_gradient(YTitle(), low = "steelblue", high = "red")}
+				
 				return(g)
 				}
 			}
@@ -281,7 +294,7 @@ shinyServer(function(input, output) {
 			if (input$color=="grey"){outPlot <- outPlot + scale_fill_grey(input$xvar, start = 0.6, end = 1)}
 			if (input$color=="cb"){outPlot <- outPlot + scale_fill_manual(input$xvar, values=cbPalette)}
 			if (input$color=="color"){outPlot <- outPlot + scale_fill_hue(input$xvar)}
-					
+			if (input$color=="no"){outPlot <- outPlot + scale_fill_grey(input$xvar, start = 1, end = 1)}		
 			}
 			
 			if (input$violin=="Violin") {
@@ -301,6 +314,7 @@ shinyServer(function(input, output) {
 			if (input$color=="grey"){outPlot <- outPlot + scale_fill_grey(input$xvar, start = 0.6, end = 1)}
 			if (input$color=="cb"){outPlot <- outPlot + scale_fill_manual(input$xvar, values=cbPalette)}
 			if (input$color=="color"){outPlot <- outPlot + scale_fill_hue(input$xvar)}
+			if (input$color=="no"){outPlot <- outPlot + scale_fill_grey(input$xvar, start = 1, end = 1)}
 			}
 			
 			if (input$violin=="ViolinBoxplot") {
@@ -321,6 +335,7 @@ shinyServer(function(input, output) {
 			if (input$color=="grey"){outPlot <- outPlot + scale_fill_grey(input$xvar, start = 0.6, end = 1)}
 			if (input$color=="cb"){outPlot <- outPlot + scale_fill_manual(input$xvar, values=cbPalette)}
 			if (input$color=="color"){outPlot <- outPlot + scale_fill_hue(input$xvar)}
+			if (input$color=="no"){outPlot <- outPlot + scale_fill_grey(input$xvar, start = 1, end = 1)}
 			}
 			
 			return(outPlot)
@@ -342,7 +357,7 @@ shinyServer(function(input, output) {
 				theme_bw()+
 				theme(plot.title = element_text(hjust=0.5, face="bold", size=round(input$fontSize*1.15)), text=element_text(family=input$serif, size=input$fontSize))
 			if (input$regrCheck==TRUE){
-				if (input$color=="grey"){outPlot <- outPlot + geom_smooth(method=lm, se=input$regrSE, color="black", fill="grey50")}
+				if (input$color=="grey"|input$color=="no"){outPlot <- outPlot + geom_smooth(method=lm, se=input$regrSE, color="black", fill="grey50")}
 				else {outPlot <- outPlot + geom_smooth(method=lm, se=input$regrSE)}
 				}
 			return(outPlot)		
@@ -360,6 +375,7 @@ shinyServer(function(input, output) {
 				if (input$color=="grey"){outPlot <- outPlot + scale_fill_grey(YTitle(), start = 0.3, end = 0.8)}
 				if (input$color=="cb"){outPlot <- outPlot + scale_fill_manual(YTitle(), values=cbPalette)}
 				if (input$color=="color"){outPlot <- outPlot + scale_fill_hue(YTitle())}
+				if (input$color=="no"){outPlot <- outPlot + scale_fill_grey(YTitle(), start = 0.3, end = 0.8)}
 				if (input$besideCheck==TRUE){
 					outPlot <- outPlot + geom_bar(position=position_dodge())
 					}	
@@ -377,6 +393,7 @@ shinyServer(function(input, output) {
 				if (input$color=="grey"){outPlot <- outPlot + scale_fill_grey(YTitle(), start = 0.3, end = 0.8)}
 				if (input$color=="cb"){outPlot <- outPlot + scale_fill_manual(YTitle(), values=cbPalette)}
 				if (input$color=="color"){outPlot <- outPlot + scale_fill_hue(YTitle())}
+				if (input$color=="no"){outPlot <- outPlot + scale_fill_grey(YTitle(), start = 0.3, end = 0.8)}
 				if (input$besideCheck==TRUE){
 					outPlot <- outPlot + geom_bar(position=position_dodge())
 					}	
@@ -400,7 +417,7 @@ shinyServer(function(input, output) {
 				theme_bw()+
 				theme(plot.title = element_text(hjust=0.5, face="bold", size=round(input$fontSize*1.15)), text=element_text(family=input$serif, size=input$fontSize))				
 			if (input$regrCheck==TRUE){
-				if (input$color == "grey") {outPlot <- outPlot + stat_smooth(method="glm", method.args = list(family="binomial"), formula=y~x, se=input$regrSE, color="black", fill="grey50")}
+				if (input$color == "grey"|input$color=="no") {outPlot <- outPlot + stat_smooth(method="glm", method.args = list(family="binomial"), formula=y~x, se=input$regrSE, color="black", fill="grey50")}
 				else {outPlot <- outPlot + stat_smooth(method="glm", method.args = list(family="binomial"), formula=y~x, se=input$regrSE)}
 				}
 			return(outPlot)	
@@ -516,7 +533,7 @@ shinyServer(function(input, output) {
 			output$TestDescription <- renderUI({
 				HTML(
 				"The variables you selected could be used for testing through a <b>two-sample t-test</b> or <b>Wilcoxon rank-sum test</b>.
-				This test takes the two groups in your data (e.g. male/female) and compares their values.
+				This test takes the two groups in your data (e.g. male/female) and compares their values of the dependent variable.
 				It determines the probability, with which the population from which you took the samples have different means.
 				For example, if you study the number of different words (type count) in essays by beginner and advanced students, it will tell you - on the base of your samples - how likely is is, that beginner and advanced students use the same number of types in their essays.<br/><br/>
 				If your values are <b>paired</b> - for example they contain the test scores of a group of students before a class and after it, select the corresponding option.")
@@ -526,6 +543,10 @@ shinyServer(function(input, output) {
 					variance <- var.test(keep[[input$yvar]] ~ keep[[input$xvar]], ratio = 1, alternative = "two.sided", conf.level = 0.95,)
 					if (range(normality[,2][,2])[1] >= 0.05 & variance$p.value >= 0.05){
 						results <- t.test(keep[[input$yvar]] ~ keep[[input$xvar]], paired=input$Paired)} #TTEST
+						#WIP Suggested reporting
+						# paste("A ", t$method, " was performed.", " The p-value of ", ifelse(t$p.value>0.001,round(t$p.value, 3),"<0.001"), " (t=",round(t$statistic,2), ", df=", round(t$parameter,2), ") ", "suggests that the difference between ",
+							# paste(levels(d[,2])[1], sep=" and ", levels(d[,2])[2]), ifelse(t$p.value<0.05, " is ", " is not "), "statistically significant", sep="")
+
 					if (range(normality[,2][,2])[1] < 0.05 | variance$p.value < 0.05) {
 						results <- wilcox.test(keep[[input$yvar]] ~ keep[[input$xvar]], paired=input$Paired)}#WILCOX TEST}
 						}
