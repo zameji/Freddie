@@ -1,15 +1,25 @@
 library(shiny)
+library(shinyLP)
+library(shinyjqui)
+library(dplyr)
 library(lmtest)
 library(ggplot2)
-library(Cairo)
 options(shiny.usecairo=FALSE)
 
 bx.stat <- function(inp){return(boxplot.stats(inp)$stats[c(1,5)])}
 cbPalette <- c("#999999", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
 fl_cl <- function(inp){return(c(floor(inp[1]),ceiling(inp[2])))}
+splitVec <- function(vec){nvec <- c()
+	temp <- c()
+	while (length(vec) > 2) {
+		while (length(temp) < 3){
+		
+			}
+		}
+	}
 
-shinyServer(function(input, output) {
-	datafileInput <- reactive({
+shinyServer(function(input, output, session) {
+	rawData <- reactive({
 		  inFile <- input$file1
 		  if (is.null(inFile))
 			return(NULL)
@@ -17,661 +27,471 @@ shinyServer(function(input, output) {
 				   quote=input$quote)
 		})
 
-	output$help <- renderUI({
-		req(is.null(datafileInput()))
-				tagList(h3("Welcome to FREDDIE Shiny!"),
-							h4("How to use it"),
-							HTML('FREDDIE Shiny is an interface to allow you simple quantitative analyses of your data. In order to use it, you will need a dataset in the CSV format.
-								For practice you can get some data <a href="https://1drv.ms/u/s!AiIxNMjRmvCLj-cpj0yUHcS9uDSLCQ">here</a>.'),
-							p("The interface loads after you uploaded the dataset. If it displays errors, make sure that you select the correct settings for 'Separator', 'Quote sign' and 'Header' with respect to the CSV file you uploaded."),
-							p("Once everything is ready, use the 'Data summary' tab to check that the individual variables were correctly recognized as categories or numbers."),
-							h4("Creating plots"),
-							p("Plots can be created in the tabs 'Variable summary' and 'Plot', depending whether you want to plot the distribution of one of your variables on its own or the relationship between your dependent and independent variables.
-								The plot type is selected automatically and depends on the type of variable used. Still you have some options to determine the exact visuals of most of the plots. The plots used include:"),
-							HTML('<ul>
-								<li><a href="https://en.wikipedia.org/wiki/Histogram">Histogram</a></li>
-								<li><a href="https://en.wikipedia.org/wiki/Box_plot">Boxplot</a>/<a href="https://en.wikipedia.org/wiki/Violin_plot">Violin plot</a></li>
-								<li><a href="https://en.wikipedia.org/wiki/Scatter_plot">Scatterplot</a></li>
-								<li><a href="https://en.wikipedia.org/wiki/Bar_chart">Bar chart</a></li>
-								</ul>'),
-							h4("Statistical testing"),
-							p("Statistical tests are automated as far as possible, so you should not make any grave mistakes. Still, some of them require some input from you. This is always described together with the test in the correspondig tab"),
-							h4("Procedure"),
-							HTML('<ol>
-								<li>Load your data in CSV format</li>
-								<li>Verify that FREDDIE imported the data correctly, if not adjust the necessary settings.</li>
-								<li>Choose your <b>independent (predicting) variable</b> - usually something like "age" or "gender"</li>
-								<li>Choose your <b>dependent (predicted) variable</b> - usually something like "points" or "frequency"</li>
-								<li>Explore the distribution of the variables on their own</li>
-								<li>Look at their relationship</li>
-								<li>If there are <a href="https://en.wikipedia.org/wiki/Outlier">outliers</a> in the data, use the outlier removal function to exclude them. <b> Only click the "Apply" button once!</b></li>
-								<li>Adjust the settings of the selected statistical test, if needed.</li>
-								<li>View the results of the test. Is there a significant relationship/difference?</li>
-								</ol>')
-				)
+	cookedData <- reactiveValues(cats=NULL, nums=NULL, cooked=NULL)				
+	plotType <- reactiveValues(current=NULL)
+	
+	cookData <- function() {
+		req(rawData())
+		cookedData$cooked <- rawData()
+		for (label in colnames(rawData())) {
+			if (label %in% cookedData$cats) {
+				if (!is.factor(cookedData$cooked[[label]])){cookedData$cooked[[label]] <- as.factor(cookedData$cooked[[label]])}
+				}
+			if (label %in% cookedData$nums) {
+				if (is.factor(cookedData$cooked[[label]])){cookedData$cooked[[label]] <- as.numeric(cookedData$cooked[[label]])}
+				}
+			}
+		}
+	
+	# Observer waiting for the upload of a file --> once its done the page Data check is activated and selected
+    observe({
+			if (is.null(rawData()) == FALSE) {
+				session$sendCustomMessage('activeNavs', 'Data check')
+				updateNavbarPage(session, 'mainnavbar', selected = 'Data check')
+			}
 		})
 		
-	datasetInput <- reactive({
-			req(datafileInput())
-			lapply(names(datafileInput()), function (variable) {req(input[[paste(variable, "type", sep="_")]])})
-				dataset <- data.frame(lapply(names(datafileInput()), function (variable) {
-					if (is.factor(datafileInput()[[variable]]) == TRUE & input[[paste(variable, "type", sep="_")]] == "category") {datafileInput()[[variable]]}
-					else if (is.numeric(datafileInput()[[variable]]) == TRUE & input[[paste(variable, "type", sep="_")]] == "number") {datafileInput()[[variable]]}
-					else if (is.factor(datafileInput()[[variable]]) == TRUE & input[[paste(variable, "type", sep="_")]] == "number") {as.numeric(as.character(datafileInput()[[variable]]))}
-					else if (is.numeric(datafileInput()[[variable]]) == TRUE & input[[paste(variable, "type", sep="_")]] == "category") {as.factor(datafileInput()[[variable]])}
+	observeEvent(input$bigFriendlyButton, {
+		session$sendCustomMessage('activeNavs', 'Data summary')
+		session$sendCustomMessage('activeNavs', 'Visualisation')
+		session$sendCustomMessage('activeNavs', 'Statistics')
+		
+		cookedData$cats <- input$cats_order
+		cookedData$nums <- input$nums_order
+
+		cookData()
+		updateNavbarPage(session, 'mainnavbar', selected = 'Data summary')	
+		})
+		
+	plotinput <- eventReactive(input$doPlot, {	
+		if (length(input$outcome_order)!=1|length(input$pred_order)>2) {
+			showModal(
+				modalDialog(
+					title="ERROR",
+					"You need one outcome and 0-2 predictors",
+					footer=NULL,
+					easyClose=TRUE
+					)
+				)
+			}
+		list(outcome=input$outcome_order, pred=input$pred_order)		
+		})
+	
+
+	output$outplot <- renderPlot({
+
+		req(cookedData$cooked, plotinput())
+		pars <- plotinput()	
+		
+		req(length(pars$outcome)==1)
+		req(length(pars$pred)<3)
+		
+		# There are no predictors, plot just the outcome
+		if (length(pars$pred)<1) {
+			
+			# Outcome is a factor
+			if (pars$outcome %in% cookedData$cats) {
+				plotType$current <- "bar_dist"
+				p <- ggplot(cookedData$cooked, aes_string(pars$outcome))
+				p <- p + geom_bar()}
+				
+			# Outcome is numeric	
+			else if (pars$outcome %in% cookedData$nums) {
+				req(input$histRange, input$histBins)
+				plotType$current <- "histogram"
+				p <- ggplot(cookedData$cooked[between(cookedData$cooked[[pars$outcome]],input$histRange[1],input$histRange[2]),], aes_string(pars$outcome))
+				p <- p + geom_histogram(bins=input$histBins)}
+			}
+		
+		# There is one predictor
+		else if (length(pars$pred)==1){
+			
+			# the outcome is numeric
+			if (pars$outcome %in% cookedData$nums){
+				# The predictor is a factor --> boxplot
+				if (pars$pred %in% cookedData$cats){
+					p <- ggplot(cookedData$cooked, aes_string(pars$pred, pars$outcome))
+					p <- p + geom_boxplot()
+					}
+				# The predictor is numeric --> scatterplot
+				else {
+					p <- ggplot(cookedData$cooked, aes_string(pars$pred, pars$outcome))
+					p <- p + geom_point()
 					}			
-					)
-				)
-				colnames(dataset) <- names(datafileInput())
-				return(dataset)
-		})
-	
-    output$sum <- renderPrint({
-		req(datasetInput())
-		summaryOutput <- summary(datasetInput())
-		if(length(summaryOutput)==3){invisible()} 
-		else {summaryOutput}
-    })
-	
-	output$overrider <- renderUI({
-		req(datafileInput())
-		tagList(
-			lapply (names(datafileInput()), function (variable) {
-					if (is.factor(datafileInput()[[variable]])) {radioButtons(paste(variable, "type", sep="_"), variable,	choices = c("category", "number"), selected = "category")}
-					else {radioButtons(paste(variable, "type", sep="_"), variable,	choices = c("category", "number"), selected = "number")} 
+				}
+			
+			# The outcome is categorical
+			else if (pars$outcome %in% cookedData$cats){
+			
+				# The predictor is a factor --> barplot
+				if (pars$pred %in% cookedData$cats){
+					p <- ggplot(cookedData$cooked, aes_string(pars$pred, fill=pars$outcome))
+					p <- p + geom_bar()
 					}
-				)
-			)
-		})
-	vals <- reactiveValues(keeprows=TRUE, markcases=FALSE)
-
-    output$varselector <- renderUI({
-		req(datafileInput())
-		  tagList(
-		    h3("Variable selection:"),
-			selectInput(inputId="yvar", label="dependent variable (y axis):", 
-						choices = names(datafileInput()), selected=names(datafileInput())[[2]]),
-			selectInput(inputId="xvar", label="independent variable (x axis):", 
-						choices = names(datafileInput()), selected=names(datafileInput())[[1]])
-			)
-    })
-    PlotType <- reactive({
-      if (is.numeric(datasetInput()[[input$yvar]]) & is.factor(datasetInput()[[input$xvar]])){return("Box plot:")}
-      if (is.numeric(datasetInput()[[input$yvar]]) & is.numeric(datasetInput()[[input$xvar]])){return("Scatter plot:")}
-      if (is.factor(datasetInput()[[input$yvar]]) & is.factor(datasetInput()[[input$xvar]])){return("Bar plot:")}
-	  if (is.factor(datasetInput()[[input$yvar]]) & length(levels(datasetInput()[[input$yvar]]))==2 & is.numeric(datasetInput()[[input$xvar]])){return("LogReg plot:")}
-	  else {return("notimplemented")}
-	})
-	
-	XTitle <- reactive({
-		req(input$xvar)
-		paste(input$xvar)
-		})
-	YTitle <- reactive({
-		req(input$yvar)
-		paste(input$yvar)
-		})
-	
-    output$Xsettings <- renderUI({
-			if(is.numeric(datasetInput()[[input$xvar]]) != TRUE) {invisible()} else {tagList(
-				 sliderInput("inXSlider", "Range of values in histogram", min=floor(range(datasetInput()[[input$xvar]], na.rm=TRUE)[1]), max=ceiling(range(datasetInput()[[input$xvar]], na.rm=TRUE)[2]), value=fl_cl(range(datasetInput()[[input$xvar]], na.rm=TRUE))),
-				 sliderInput("inXBinSlider", "Number of bars displayed in histogram", min=5, max=25, value=10)
-				 )}
-	})
-    output$Ysettings <- renderUI({
-			if(is.numeric(datasetInput()[[input$yvar]]) != TRUE) {invisible()} else {tagList(
-				sliderInput("inYSlider", "Range of values in histogram", min=floor(range(datasetInput()[[input$yvar]], na.rm=TRUE)[1]), max=ceiling(range(datasetInput()[[input$yvar]], na.rm=TRUE)[2]), value=fl_cl(range(datasetInput()[[input$yvar]], na.rm=TRUE))),
-				sliderInput("inYBinSlider", "Number of bars displayed in histogram", min=5, max=25, value=10)
-				)}
-	})
-
-	SummaryPlotX <- function(){
-		if (!is.null(datasetInput()==TRUE)){
-			if (is.numeric(datasetInput()[[input$xvar]])){
-				req(input$inXSlider, input$inXBinSlider)
-				Xdata <- datasetInput()[[input$xvar]]
-				Xdata <- Xdata[Xdata>input$inXSlider[1] & Xdata<input$inXSlider[2]]
-				g <- ggplot() +
-					aes(Xdata) +
-					geom_histogram(aes(fill=..count..), col="black", alpha=.5, breaks=seq(min(Xdata, na.rm=TRUE), max(Xdata, na.rm=TRUE), l=input$inXBinSlider+1)) +
-					theme_bw() +
-					theme(plot.title = element_text(hjust = 0.5, face="bold", size=round(input$fontSize*1.15)), text=element_text(family=input$serif, size=input$fontSize)) +
-					labs(title=paste("Distribution of ", tolower(XTitle()), sep="")) +
-					labs(x=XTitle(),y="Frequency")
-				if (input$color=="grey"){g <- g + scale_fill_gradient("Count", low = "white", high = "grey40")}
-				if (input$color=="cb"){g <- g + scale_fill_gradient("Count", low = "#DDDDFF", high = "#000066")}
-				if (input$color=="color"){g <- g + scale_fill_gradient("Count", low = "steelblue", high = "red")}
-				return(g)
-				}
-			if (is.factor(datasetInput()[[input$xvar]])){
-				g <- ggplot(datasetInput(), aes(datasetInput()[[input$xvar]])) +
-						scale_x_discrete(name=XTitle()) + 
-						labs(title=paste("Distribution of ", tolower(XTitle()), sep="")) +
-						theme_bw() +
-						theme(plot.title = element_text(hjust=0.5, face="bold", size=round(input$fontSize*1.15)), legend.position="none", text=element_text(family=input$serif, size=input$fontSize)) +
-						geom_bar(position=position_dodge(), aes(fill=..count..))
-				if (input$color=="grey"){g <- g + scale_fill_gradient(XTitle(), low = "grey80", high = "grey40")}
-				if (input$color=="cb"){g <- g + scale_fill_gradient(XTitle(), low = "#AAAAFF", high = "#000066")}
-				if (input$color=="color"){g <- g + scale_fill_gradient(XTitle(), low = "steelblue", high = "red")}
-				return(g)
+				# The predictor is numeric --> logistic regression?
+				else {			
+					p <- ggplot(cookedData$cooked, aes_string(pars$pred, pars$outcome))
+					p <- p + geom_point()				
+					}			
 				}
 			}
-		}
-	SummaryPlotY <- function(){
-		if (!is.null(datasetInput()==TRUE)){
-			if (is.numeric(datasetInput()[[input$yvar]])){
-				req(input$inYSlider, input$inYBinSlider)
-				Ydata <- datasetInput()[[input$yvar]]
-				Ydata <- Ydata[Ydata>input$inYSlider[1] & Ydata<input$inYSlider[2]]
-				g <- ggplot() +
-					aes(Ydata) +
-					geom_histogram(aes(fill=..count..), col="black", alpha=.75, breaks=seq(min(Ydata, na.rm=TRUE), max(Ydata, na.rm=TRUE), l=input$inYBinSlider+1)) +
-					theme_bw() +
-					theme(plot.title = element_text(hjust = 0.5, face="bold", size=round(input$fontSize*1.15)), text=element_text(family=input$serif, size=input$fontSize)) +
-					labs(title=paste("Distribution of ", tolower(YTitle()), sep="")) +
-					labs(x=YTitle(),y="Frequency")
-				if (input$color=="grey"){g <- g + scale_fill_gradient("Count", low = "white", high = "grey40")}
-				if (input$color=="cb"){g <- g + scale_fill_gradient("Count", low = "#DDDDFF", high = "#000066")}
-				if (input$color=="color"){g <- g + scale_fill_gradient("Count", low = "steelblue", high = "red")}
-				return(g)
-				return(g)
-				}
-			if (is.factor(datasetInput()[[input$yvar]])){
-				g <- ggplot(datasetInput(), aes(datasetInput()[[input$yvar]])) +
-					scale_x_discrete(name=YTitle()) + 
-					labs(title=paste("Distribution of ", tolower(YTitle()), sep="")) +
-					theme_bw() +
-					theme(plot.title = element_text(hjust=0.5, face="bold", size=round(input$fontSize*1.15)), legend.position="none", text=element_text(family=input$serif, size=input$fontSize)) +
-					geom_bar(position=position_dodge(), aes(fill=..count..))
-				if (input$color=="grey"){g <- g + scale_fill_gradient(YTitle(), low = "grey80", high = "grey40")}
-				if (input$color=="cb"){g <- g + scale_fill_gradient(YTitle(), low = "#AAAAFF", high = "#000066")}
-				if (input$color=="color"){g <- g + scale_fill_gradient(YTitle(), low = "steelblue", high = "red")}
-				return(g)
-				}
-			}
-		else {invisible()}
-		}
-	output$PlotType <- renderText({
-			PlotType()
-    })
-	output$PlotSettings <- renderUI({
-		if (is.null(datasetInput()) == TRUE) {invisible()}
-		else{
-			if (PlotType()=="Bar plot:"){tagList(
-					checkboxInput("leg", "Legend", TRUE),
-					checkboxInput("besideCheck", "Do not stack", FALSE),
-					radioButtons("propCheck", "",	choices = c("absolute", "relative"), selected = "absolute")
-					)
-				}
-			else if (PlotType()=="Box plot:"){tagList(
-					checkboxInput("notchCheck", "Notches", FALSE),
-					radioButtons("violin", label="Visualisation style", choices=c("Boxplot", "Violin plot"="Violin", "Violin + boxplot"="ViolinBoxplot"), selected="Boxplot")
-					)
-				}
-			else if (PlotType()=="Scatter plot:"){tagList(
-					checkboxInput("regrCheck", "Regression line", FALSE),
-					checkboxInput("regrSE", "Display standard error", FALSE)
-					)
-				}
-			else if (PlotType()=="LogReg plot:") {tagList(
-					checkboxInput("regrCheck", "Regression curve", FALSE),
-					checkboxInput("regrSE", "Display standard error", FALSE)
-					)
-				}				
-			else {invisible()}
-		}
-	})	
-	output$OutlierFilter <- renderUI({
-	if (is.null(datasetInput()) == TRUE) {invisible()}
-	else {
-			if (PlotType()=="Scatter plot:") 
-					{tagList(
-						h3("Outlier removal"),
-						HTML('<p>If there are any <a href="https://en.wikipedia.org/wiki/Outlier">outliers</a> that you believe to be due to measurement error (their value is too large to be realist), 
-							remove them by clicking on them or dragging a box and then clicking the "Select" button. To remove them from the statistical tests, click "Apply".</p>'),
-						p("You should select ALL outliers before hitting the 'Apply' button. "),
-						fluidRow(
-							column(1, actionButton("exclude_toggle", "Select")),
-							column(1, actionButton("exclude_reset", "Reset")),
-							column(1, actionButton("apply_removal", "Apply", style="color: #fff; background-color: #009933;")),
-							column(9, invisible())
-							)
-						)
-					}	
-			else if (PlotType()=="Box plot:") 
-					{tagList(
-						h3("Outlier removal"),
-						HTML('<p>The boxplot chart is showing <a href="https://en.wikipedia.org/wiki/Outlier">outliers</a> as individual dots. Mark those outliers 
-							that are too extreme to be realistic by clicking on them or dragging a box and then clicking the "Select" button. To remove them from the statistical tests, click "Apply".</p>'),
-						p("You should select ALL outliers before hitting the 'Apply' button. If the redrawn chart shows new outlier-like cases, do not remove them anymore."),
-						fluidRow(
-							column(1, actionButton("exclude_toggle", "Select")),
-							column(1, actionButton("exclude_reset", "Reset")),
-							column(1, actionButton("apply_removal", "Apply", style="color: #fff; background-color: #009933;")),
-							column(9, invisible())
-							)
-						)
-					}
-			else {invisible()}
-			}
-		})	
-	
-	
-    Plotcode <- function(){
-		req(PlotType(), vals)
-        # create a boxplot if y variable is numeric and x variable is categorical		
-        if (PlotType()=="Box plot:"){
-			req(input$xvar, input$yvar, input$color, input$serif, input$fontSize)
-			req(input$violin)
-			keep    <- datasetInput()[ vals$keeprows, , drop = FALSE]
-			exclude <- datasetInput()[!vals$keeprows, , drop = FALSE]
-			mark <- datasetInput()[ vals$markcases, , drop = FALSE]
-			
-			if (input$violin == "Boxplot") {
-				outPlot <- ggplot(keep, aes(keep[[input$xvar]], keep[[input$yvar]])) +
-					geom_boxplot(notch=input$notchCheck) +
-					geom_point(data = mark, aes(mark[[input$xvar]], mark[[input$yvar]]), shape = 4, color = "red", size=3, stroke=1.5, alpha = 0.75) +
-					geom_point(data = exclude, aes(exclude[[input$xvar]], exclude[[input$yvar]]), shape = 4, color = "black", size=2, alpha = 0.15) +
-					scale_x_discrete(name=input$xvar) + 
-					scale_y_continuous(name=input$yvar)+
-					ggtitle(input$titleInput)+
-					theme_bw()+
-					theme(plot.title = element_text(hjust=0.5, face="bold", size=round(input$fontSize*1.15)), text=element_text(family=input$serif, size=input$fontSize))
-					
-			if (input$color=="grey"){outPlot <- outPlot + scale_fill_grey(input$xvar, start = 0.6, end = 1)}
-			if (input$color=="cb"){outPlot <- outPlot + scale_fill_manual(input$xvar, values=cbPalette)}
-			if (input$color=="color"){outPlot <- outPlot + scale_fill_hue(input$xvar)}
-					
-			}
-			
-			if (input$violin=="Violin") {
-				inliers <- rep(TRUE, length(keep[,1]))
-				bounds <- aggregate(keep[[input$yvar]], by=list(keep[[input$xvar]]), FUN=bx.stat)
-				for (level in levels(keep[[input$xvar]])) {inliers[keep[[input$xvar]]==level & (keep[[input$yvar]] < bounds[bounds[,1]==level,2][1]|keep[[input$yvar]] > bounds[bounds[,1]==level,2][2])] <- FALSE}
-				outPlot <- ggplot(keep, aes(keep[[input$xvar]], keep[[input$yvar]])) +
-					geom_violin(data=keep[inliers,], aes(keep[inliers, input$xvar], keep[inliers,input$yvar], fill=keep[inliers, input$xvar])) +
-					geom_point(data=keep[!inliers,], aes(keep[!inliers,input$xvar], keep[!inliers,input$yvar])) +
-					geom_point(data = mark, aes(mark[[input$xvar]], mark[[input$yvar]]), shape = 4, color = "red", size=3, stroke=1.5, alpha = 0.75) +
-					geom_point(data = exclude, aes(exclude[[input$xvar]], exclude[[input$yvar]]), shape = 4, color = "black", size=2, alpha = 0.15) +
-					scale_x_discrete(name=input$xvar) + 
-					scale_y_continuous(name=input$yvar)+
-					ggtitle(input$titleInput)+
-					theme_bw()+
-					theme(plot.title = element_text(hjust=0.5, face="bold", size=round(input$fontSize*1.15)), text=element_text(family=input$serif, size=input$fontSize))
-			if (input$color=="grey"){outPlot <- outPlot + scale_fill_grey(input$xvar, start = 0.6, end = 1)}
-			if (input$color=="cb"){outPlot <- outPlot + scale_fill_manual(input$xvar, values=cbPalette)}
-			if (input$color=="color"){outPlot <- outPlot + scale_fill_hue(input$xvar)}
-			}
-			
-			if (input$violin=="ViolinBoxplot") {
-				inliers <- rep(TRUE, length(keep[,1]))
-				bounds <- aggregate(keep[[input$yvar]], by=list(keep[[input$xvar]]), FUN=bx.stat)
-				for (level in levels(keep[[input$xvar]])) {inliers[keep[[input$xvar]]==level & (keep[[input$yvar]] < bounds[bounds[,1]==level,2][1]|keep[[input$yvar]] > bounds[bounds[,1]==level,2][2])] <- FALSE}
-				outPlot <- ggplot(keep, aes(keep[[input$xvar]], keep[[input$yvar]])) +
-					geom_violin(data=keep[inliers,], aes(keep[inliers,input$xvar], keep[inliers,input$yvar], fill=keep[inliers, input$xvar])) +
-					geom_boxplot(data=keep, width=0.1, notch=input$notchCheck) +
-					geom_point(data = mark, aes(mark[[input$xvar]], mark[[input$yvar]]), shape = 4, color = "red", size=3, stroke=1.5, alpha = 0.75) +
-					geom_point(data = exclude, aes(exclude[[input$xvar]], exclude[[input$yvar]]), shape = 4, color = "black", size=2, alpha = 0.15) +
-					scale_x_discrete(name=input$xvar) + 
-					scale_y_continuous(name=input$yvar)+
-					ggtitle(input$titleInput)+
-					theme_bw()+
-					theme(plot.title = element_text(hjust=0.5, face="bold", size=round(input$fontSize*1.15)), text=element_text(family=input$serif, size=input$fontSize))				
-					
-			if (input$color=="grey"){outPlot <- outPlot + scale_fill_grey(input$xvar, start = 0.6, end = 1)}
-			if (input$color=="cb"){outPlot <- outPlot + scale_fill_manual(input$xvar, values=cbPalette)}
-			if (input$color=="color"){outPlot <- outPlot + scale_fill_hue(input$xvar)}
-			}
-			
-			return(outPlot)
-        }
 		
-        # create a scatterplot if y variable is numeric and x variable is numeric
-        if (PlotType()=="Scatter plot:"){
-			req(input$xvar, input$yvar, input$color, input$serif, input$fontSize)
-			keep    <- datasetInput()[ vals$keeprows, , drop = FALSE]
-			exclude <- datasetInput()[!vals$keeprows, , drop = FALSE]	
-			mark <- datasetInput()[ vals$markcases, , drop = FALSE]
-			outPlot <- ggplot(keep, aes(keep[[input$xvar]], keep[[input$yvar]])) +
-				geom_point(shape = 16) +
-				geom_point(data = mark, aes(mark[[input$xvar]], mark[[input$yvar]]), shape = 4, color = "red", size=3, alpha = 0.75) +
-				geom_point(data = exclude, aes(exclude[[input$xvar]], exclude[[input$yvar]]), shape = 4, color = "black", size=2, alpha = 0.15) +
-				scale_x_continuous(name=input$xvar) + 
-				scale_y_continuous(name=input$yvar)+
-				ggtitle(input$titleInput)+
-				theme_bw()+
-				theme(plot.title = element_text(hjust=0.5, face="bold", size=round(input$fontSize*1.15)), text=element_text(family=input$serif, size=input$fontSize))
-			if (input$regrCheck==TRUE){
-				if (input$color=="grey"){outPlot <- outPlot + geom_smooth(method=lm, se=input$regrSE, color="black", fill="grey50")}
-				else {outPlot <- outPlot + geom_smooth(method=lm, se=input$regrSE)}
-				}
-			return(outPlot)		
-        }
-        # create a barplot if y variable is categorical and x variable is categorical
-        if (PlotType()=="Bar plot:"){
-			req(input$propCheck,input$besideCheck|!input$besideCheck,input$leg|!input$leg)
-			req(input$xvar, input$yvar, input$color, input$serif, input$fontSize)
-			if (input$propCheck=="absolute"){
-				outPlot <- ggplot(datasetInput(), aes(datasetInput()[[input$xvar]], fill=datasetInput()[[input$yvar]])) +
-					scale_x_discrete(name=XTitle()) + 
-					ggtitle(input$titleInput)+
-					theme_bw()+
-					theme(plot.title = element_text(hjust=0.5, face="bold", size=round(input$fontSize*1.15)), text=element_text(family=input$serif, size=input$fontSize))
-				if (input$color=="grey"){outPlot <- outPlot + scale_fill_grey(YTitle(), start = 0.3, end = 0.8)}
-				if (input$color=="cb"){outPlot <- outPlot + scale_fill_manual(YTitle(), values=cbPalette)}
-				if (input$color=="color"){outPlot <- outPlot + scale_fill_hue(YTitle())}
-				if (input$besideCheck==TRUE){
-					outPlot <- outPlot + geom_bar(position=position_dodge())
-					}	
-				else {outPlot <- outPlot + geom_bar(position=position_stack())}
-				if (input$leg==TRUE){
-					outPlot <- outPlot + theme(legend.position="right")
-					}	
-				else {outPlot <- outPlot + theme(legend.position="none")}}
-			else {
-				outPlot <- ggplot(datasetInput(), aes(datasetInput()[[input$xvar]], fill=datasetInput()[[input$yvar]])) +
-					scale_x_discrete(name=XTitle()) + 
-					ggtitle(input$titleInput) +
-					theme_bw()+
-					theme(plot.title = element_text(hjust=0.5, face="bold", size=round(input$fontSize*1.15)), text=element_text(family=input$serif, size=input$fontSize))
-				if (input$color=="grey"){outPlot <- outPlot + scale_fill_grey(YTitle(), start = 0.3, end = 0.8)}
-				if (input$color=="cb"){outPlot <- outPlot + scale_fill_manual(YTitle(), values=cbPalette)}
-				if (input$color=="color"){outPlot <- outPlot + scale_fill_hue(YTitle())}
-				if (input$besideCheck==TRUE){
-					outPlot <- outPlot + geom_bar(position=position_dodge())
-					}	
-				else {outPlot <- outPlot + geom_bar(position="fill")}
-				if (input$leg==TRUE){
-					outPlot <- outPlot + theme(legend.position="right")
-					}	
-				else {outPlot <- outPlot + theme(legend.position="none")}}
-				return(outPlot)	
-				}
-		if (PlotType()=="LogReg plot:") {
-			req(!is.null(input$regrCheck))
-			req(!is.null(input$regrSE))
-			req(input$xvar, input$yvar, input$color, input$serif, input$fontSize)
+		# There are two predictors
+		else if (length(pars$pred)==2){
+			
+			# the outcome is numeric
+			if (pars$outcome %in% cookedData$nums){
+				# The predictor is are factors --> boxplot with subcategories
+				if (all(pars$pred %in% cookedData$cats)){
+					p <- ggplot(cookedData$cooked, aes_string(x=pars$pred[1], y=pars$outcome, fill=pars$pred[2]))
+					p <- p + geom_boxplot()
+					}
+				# The predictors is numeric --> scatterplot with color gradient
+				else if (all(pars$pred %in% cookedData$nums)){
+					p <- ggplot(cookedData$cooked, aes_string(x=pars$pred[1], y=pars$outcome, color=pars$pred[2]))
+					p <- p + geom_point()
+					}
 
-			outPlot <- ggplot(datasetInput(),aes(datasetInput()[[input$xvar]],as.numeric(datasetInput()[[input$yvar]])-1)) +
-				geom_point(position="identity") +
-				scale_x_continuous(name=XTitle()) + 
-				scale_y_continuous(name = YTitle(), expand=c(0.1,0.1), breaks=c(0,1), labels=levels(datasetInput()[[input$yvar]])) +
-				ggtitle(input$titleInput) +
-				theme_bw()+
-				theme(plot.title = element_text(hjust=0.5, face="bold", size=round(input$fontSize*1.15)), text=element_text(family=input$serif, size=input$fontSize))				
-			if (input$regrCheck==TRUE){
-				if (input$color == "grey") {outPlot <- outPlot + stat_smooth(method="glm", method.args = list(family="binomial"), formula=y~x, se=input$regrSE, color="black", fill="grey50")}
-				else {outPlot <- outPlot + stat_smooth(method="glm", method.args = list(family="binomial"), formula=y~x, se=input$regrSE)}
+				# Mixed predictors --> scatterplot with character mapping
+				else {
+					fil <- pars$pred %in% cookedData$nums
+					p <- ggplot(cookedData$cooked, aes_string(x=pars$pred[fil], y=pars$outcome, pch=pars$pred[!fil]))
+					p <- p + geom_point()
+
+					###
+					# ADD FACET_WRAP
+					###
+					
+					}
 				}
-			return(outPlot)	
+			
+			# The outcome is categorical
+			else if (pars$outcome %in% cookedData$cats){
+			
+				# The predictors are a factor --> faceted barplot
+				if (all(pars$pred %in% cookedData$cats)){
+					p <- ggplot(cookedData$cooked, aes_string(x=pars$pred[1], fill=pars$outcome))
+					p <- p + geom_bar() + facet_wrap(pars$pred[2])
+					}
+				
+				# The predictors are all numeric --> logistic regression with color
+				else if (all(pars$pred %in% cookedData$nums)){
+					p <- ggplot(cookedData$cooked, aes_string(x=pars$pred[1], y=pars$outcome, color=pars$pred[2]))
+					p <- p + geom_point()
+					}					
+				# Mixed predictors --> logistic regression with pch
+				else {
+					fil <- pars$pred %in% cookedData$nums			
+					p <- ggplot(cookedData$cooked, aes_string(x=pars$pred[fil], y=pars$outcome))
+					p <- p + geom_point() + facet_wrap(pars$pred[!fil])
+
+					}			
+				}
+						
 			}
-		else {outPlot <- "notimplemented"}	
-			return(ggplot()+theme_classic())
-      }
-	  
-	# Toggle points that are clicked
-	observeEvent(input$exclude_toggle, {
-		req(Plotcode(), vals)
-		res <- brushedPoints(datasetInput(), input$plot1_brush, xvar=input$xvar, yvar=input$yvar, allRows = TRUE)
-		vals$markcases <- vals$markcases | res$selected_
-	})
-	observeEvent(input$plot1_click, {
-		req(Plotcode(), vals)
-		res <- nearPoints(datasetInput(), input$plot1_click, xvar=input$xvar, yvar=input$yvar, allRows = TRUE)
-		vals$markcases <- vals$markcases | res$selected_
-	})
-	observeEvent(input$apply_removal, {
-		req(Plotcode(), vals)
-		vals$keeprows <- vals$keeprows & !vals$markcases
-		vals$markcases <- FALSE
+	
+	p <- p + theme_bw()
+	return(p)
 	})
 	
-	# Reset all points
-	observeEvent(input$exclude_reset, {
-		vals$keeprows <- TRUE
-		vals$markcases <- FALSE
-		})
-	observeEvent(input$xvar, {
-		vals$keeprows <- TRUE
-		vals$markcases <- FALSE
-		})
-	observeEvent(input$yvar, {
-		vals$keeprows <- TRUE
-		vals$markcases <- FALSE
-		})
-    output$Plot <- renderPlot({
-	  req(PlotType())
-	  Plotcode()
-    })
-	
-	output$SumPlotX <- renderPlot({
-      SummaryPlotX()
-    })
-	output$SumPlotY <- renderPlot({
-      SummaryPlotY()
-    })
-    output$downloadData <- downloadHandler(
-      filename = function(){
-        paste(input$yvar, "By", input$xvar, '.png', sep='')
-      },
-      content = function(file) {
-        png(file)
-        Plotcode()
-        dev.off()
-      },
-      contentType = "image/png"
-    )
-# DETERMINE THE TYPE OF TEST USED   
-	TestType <- reactive({
-		keep    <- datasetInput()[ vals$keeprows, , drop = FALSE]
-		if (PlotType()=="Box plot:" & length(levels(keep[[input$xvar]]))==2 ){
-			return("t")} #TTEST
-		if (PlotType()=="Box plot:" & length(levels(keep[[input$xvar]]))>2 ){
-			return("linreg")}#LINEAR REGRESSION
-		if (PlotType()=="Scatter plot:"){
-			scedasticity <- bptest(lm(keep[[input$yvar]] ~ keep[[input$xvar]]))
-			normality <- lapply(data.frame(keep[[input$yvar]], keep[[input$xvar]]) , function(x) {y <- shapiro.test(x); c(y$p.value)})	
-			if (range(normality)[1] >= 0.05 & scedasticity$p.value >= 0.05) {
-				return("pearson")}#PEARSON CORELATION
-			if (range(normality)[1] < 0.05 | scedasticity$p.value <0.05) {
-				return("spearman")}#SPEARMAN
+	output$plotChoices <- renderUI({
+		req(cookedData$cooked, plotinput())
+		
+		pars <- plotinput()	
+		
+		req(length(pars$outcome)==1)
+		req(length(pars$pred)<3)
+		
+		if (length(pars$pred)<1) {
+			
+			# Outcome is a factor
+			if (pars$outcome %in% cookedData$cats) {}
+				
+			# Outcome is numeric	
+			else if (pars$outcome %in% cookedData$nums) {
+				dataSpan <- range(cookedData$cooked[[pars$outcome]], na.rm=T)
+				dataSpan[1] <- floor(dataSpan[1])
+				dataSpan[2] <- ceiling(dataSpan[2])
+				tagList(column(6,
+						sliderInput("histRange", "Range of values in histogram", min=dataSpan[1], max=dataSpan[2], value=dataSpan)
+						),
+					column(6,
+						sliderInput("histBins", "Number of bars displayed in histogram", min=5, max=25, value=10)
+						)
+					)
+				}
 			}
-        if (PlotType()=="Bar plot:"){			
-			if (range(table(keep[[input$yvar]], keep[[input$xvar]]))[1] > 5) {	
-				return("chisq")}#CHISQ
-			if (range(table(keep[[input$yvar]], keep[[input$xvar]]))[1] <= 5) {	
-				return("fisher")}#FISHER
+		
+		# There is one predictor
+		else if (length(pars$pred)==1){
+			
+			# the outcome is numeric
+			if (pars$outcome %in% cookedData$nums){
+				# The predictor is a factor --> boxplot
+				if (pars$pred %in% cookedData$cats){}
+				# The predictor is numeric --> scatterplot
+				else {}			
+				}
+			
+			# The outcome is categorical
+			else if (pars$outcome %in% cookedData$cats){
+			
+				# The predictor is a factor --> barplot
+				if (pars$pred %in% cookedData$cats){}
+				# The predictor is numeric --> logistic regression?
+				else {}			
+				}
 			}
-		else {return("none")}
+		
+		# There are two predictors
+		else if (length(pars$pred)==2){
+			
+			# the outcome is numeric
+			if (pars$outcome %in% cookedData$nums){
+				# The predictor is are factors --> boxplot with subcategories
+				if (all(pars$pred %in% cookedData$cats)){}
+				# The predictors is numeric --> scatterplot with color gradient
+				else if (all(pars$pred %in% cookedData$nums)){}
 
-	})
-# CHOOSE SETTINGS TO DISPLAY DEPENDING ON THE TYPE OF TEST USED
-	output$TestSettings <- renderUI({
-		CurrentTestType <- TestType()
-		if (CurrentTestType == "t") {tagList(
-			h3("Test settings:"),
-			checkboxInput("Paired", "Paired data (for example before/after an experiment)", FALSE)
-			)}
-		else if (CurrentTestType == "linreg") {invisible()}
-		else if (CurrentTestType == "pearson") {tagList(
-			h3("Test settings:"),
-			checkboxInput("Linear", "The relationship between the data is linear (the plot displays a line, not a curve)", TRUE),
-			checkboxInput("Continuous", "None of the variables is ordinal (like ranking: 1st, 2nd, etc.)", TRUE),
-			checkboxInput("Outliers", "There are no outliers in the data", TRUE)
-			)}
-		else if (CurrentTestType == "spearman") {tagList(
-			h3("Test settings:"),
-			checkboxInput("Outliers", "There are no outliers in the data", TRUE)
-			)}
-		else if (CurrentTestType == "chisq") {invisible()}
-		else if (CurrentTestType == "fisher") {invisible()}
-		else {invisible()}
+				# Mixed predictors --> scatterplot with character mapping
+				else {}
+				}
+			
+			# The outcome is categorical
+			else if (pars$outcome %in% cookedData$cats){
+			
+				# The predictors are a factor --> faceted barplot
+				if (all(pars$pred %in% cookedData$cats)){}
+				
+				# The predictors are all numeric --> logistic regression with color
+				else if (all(pars$pred %in% cookedData$nums)){}					
+				# Mixed predictors --> logistic regression with pch
+				else {}			
+				}
+			
+			
+			}		
 		})
-###TESTCODE NEEDS TO BE SPLIT INTO TEST-DEFINING CODE AND TEXT EXECUTING CODE TO AVOID ISSUES WITH RESETTING
-    Testcode <- reactive({
-		keep    <- datasetInput()[ vals$keeprows, , drop = FALSE]
-	  	CurrentTestType <- TestType()
-        # t-test logic for numeric-categorial (two levels): if parameters fulfilled, do t-test, if not, do Wilcoxon-Mann-Whitney
-		if (CurrentTestType  == "t") {
-			output$TestDescription <- renderUI({
-				HTML(
-				"The variables you selected could be used for testing through a <b>two-sample t-test</b> or <b>Wilcoxon rank-sum test</b>.
-				This test takes the two groups in your data (e.g. male/female) and compares their values.
-				It determines the probability, with which the population from which you took the samples have different means.
-				For example, if you study the number of different words (type count) in essays by beginner and advanced students, it will tell you - on the base of your samples - how likely is is, that beginner and advanced students use the same number of types in their essays.<br/><br/>
-				If your values are <b>paired</b> - for example they contain the test scores of a group of students before a class and after it, select the corresponding option.")
-			 })
-			if (input$Paired==TRUE){
-					normality <- aggregate(formula = keep[[input$yvar]] ~ keep[[input$xvar]], FUN = function(x) {y <- shapiro.test(x); c(y$statistic, y$p.value)})
-					variance <- var.test(keep[[input$yvar]] ~ keep[[input$xvar]], ratio = 1, alternative = "two.sided", conf.level = 0.95,)
-					if (range(normality[,2][,2])[1] >= 0.05 & variance$p.value >= 0.05){
-						results <- t.test(keep[[input$yvar]] ~ keep[[input$xvar]], paired=input$Paired)} #TTEST
-					if (range(normality[,2][,2])[1] < 0.05 | variance$p.value < 0.05) {
-						results <- wilcox.test(keep[[input$yvar]] ~ keep[[input$xvar]], paired=input$Paired)}#WILCOX TEST}
-						}
-			if (input$Paired==FALSE){
-					normality <- shapiro.test(keep[[input$yvar]])
-					variance <- var.test(keep[[input$yvar]] ~ keep[[input$xvar]], ratio = 1, alternative = "two.sided", conf.level = 0.95,)
-					if (normality >= 0.05 & variance$p.value >= 0.05){
-						results <- t.test(keep[[input$yvar]] ~ keep[[input$xvar]], paired=input$Paired)} #TTEST
-					if (normality < 0.05 | variance$p.value < 0.05) {
-						results <- wilcox.test(keep[[input$yvar]] ~ keep[[input$xvar]], paired=input$Paired)}#WILCOX TEST}
-						}
-				output$Signalert <- renderText({
-					ifelse(results$p.value<=0.05, "significant", "not significant")
-					})
-				output$Pvalue <- renderText({
-					paste("p ", ifelse(results$p.value<0.001, "< 0.001", paste("= ", (round(results$p.value,3)), sep="")), sep="")
-					})
-		}
-        # linear regression for numeric-categorial (more levels)
-        if (CurrentTestType  == "linreg"){
-			output$TestDescription <- renderUI({
-				HTML(
-				"You selected a combination of variables that does not allow for a simple test. Because of that, <b>linear regression</b> a slightly more advanced model is used.
-				If you do not understand the output presented below, it would be safer not to use such variables for statistic testing.")
-				})
-			results <- summary(lm(keep[[input$yvar]] ~ keep[[input$xvar]]))
-			pvalue <- pf(results$fstatistic[1], results$fstatistic[2], results$fstatistic[3], lower.tail =F)
-			output$Signalert <- renderText({
-				ifelse(pvalue<=0.05, "significant", "not significant")
-				})
-			output$Pvalue <- renderText({
-				paste("p ", ifelse(pvalue<0.001, "< 0.001", paste("= ", (round(pvalue,3)), sep="")), sep="")
-				})
-			}
-        # correlation test for numeric-numeric: if parameters fulfilled, do Pearson-r, if not, do Kendall-tau
-        if (CurrentTestType  == "pearson") {
-			output$TestDescription <- renderUI({
-				HTML(
-				"The variables you selected could be used for testing through a <b>correlation test</b>.
-				This test takes the two groups of 'scores' (e.g. age/first formant) and compares their values.
-				It determines the strength of the relationship between them - how well does knowing the value of X allow us to predict Y - and determines whether the relationship may be purely 
-				coincidental (e.g. if you have few examples).<br/><br/>
-				Some of the prerequisites of this test were tested automatically by FREDDIE Shiny (normality, heteroscedasticity), but some of them need to be decided by you.<br/>
-				<ul>
-					<li>Is the relationship between the two variables approximately linear? (if you look at their plot, do the datapoints plot a line and not a curve) </li>
-					<li>Are both of the variables continuous? (none of them is a ranking, like 1st, 2nd etc.</li>
-					<li>Are there any outliers in the data? (no values so extreme that they are unrealistic or influencing the whole data too much)</li>
-				</ul>
-				Depending on your answers, a fitting correlation method will be used.")
-				})
-			if (input$Linear==TRUE & input$Continuous==TRUE & input$Outliers==TRUE){
-				results <- cor.test(keep[[input$yvar]], keep[[input$xvar]], method="pearson")
+	
+	output$summaryOutput <- renderUI({
+		req(cookedData$cooked)
+		
+		wells <- '<h3 style="text-align: center">Categories</h3>'
+		
+		# Create rows to display
+		rows <- list()
+		cRow <- c()
+		ind <- 1
+		cRowInd <- 1
+		rest <- length(cookedData$cats)
+		cats <- cookedData$cats[order(seq(-1,-rest))]
+		
+		for (label in cats) {
+			while(rest >5) {
+				while (ind <=5){
+					cRow <- c(cRow, as.character(cats[rest]))
+					rest <- rest - 1
+					ind <- ind + 1
+					}
+				ind <- 1
+				rows[[cRowInd]] <- cRow
+				cRowInd <- cRowInd + 1
+				cRow <- c()
 				}
-			else if (input$Outliers==TRUE & input$Linear==FALSE | input$Continuous==FALSE){
-				results <- cor.test(keep[[input$yvar]], keep[[input$xvar]], method="spearman")
+				
+				cRow <- as.character(cats[seq(rest,1)])
+				rows[[cRowInd]] <- cRow
+			}		
+		
+		
+		for (row in rows) {
+			if (length(row) == 5){
+				wells <- paste(wells, '<div class="row"><div class=col-sm-1></div>', sep="")
+				for (label in row)	{
+					summarize <- paste("<h4>",label, "</h4>","<p>", sep="")
+						for (level in levels(cookedData$cooked[[label]])) {
+						summarize <- paste(summarize,
+							level,
+							"\t",
+							sum(cookedData$cooked[[label]]==level),
+							"<br/>",
+							sep=""
+								)
+							}
+					summarize <- paste(summarize, "</p>", sep="")
+					wells <- paste(wells, paste('<div class=col-sm-2><div class="well" style="text-align:center">', summarize, "</div></div>", sep=""))
+					}
+				
+				wells <- paste(wells, "<div class=col-sm-1></div></div>", sep="")
+			}
+			
+			if (length(row)!=5){
+				wells <- paste(wells, '<div class="row">','<div class=col-sm-',6-length(row),'></div>', sep="")
+				for (label in row)	{
+					summarize <- paste("<h4>",label, "</h4>","<p>", sep="")
+						for (level in levels(cookedData$cooked[[label]])) {
+						summarize <- paste(summarize,
+							level,
+							"\t",
+							sum(cookedData$cooked[[label]]==level),
+							"<br/>",
+							sep=""
+								)
+							}
+					summarize <- paste(summarize, "</p>", sep="")
+					wells <- paste(wells, paste('<div class=col-sm-2><div class="well" style="text-align:center">', summarize, "</div></div>", sep=""))
+					}
+				
+				wells <- paste(wells, "<div class=col-sm-",6-length(row),"></div></div>", sep="")			
+
 				}
-			else {results <- "none"}
-			if (results != "none"){
-				output$Signalert <- renderText({
-					ifelse(results$p.value<=0.05, "significant", "not significant")
-					})
-				output$Pvalue <- renderText({
-					paste("p ", ifelse(results$p.value<0.001, "< 0.001", paste("= ", (round(results$p.value,3)), sep="")), sep="")
-					})
+
+			}
+			
+		wells <- paste(wells, '<h3 style="text-align: center">Numbers</h3>', sep="")	
+
+		rows <- list()
+		cRow <- c()
+		ind <- 1
+		cRowInd <- 1
+		rest <- length(cookedData$nums)
+		nums <- cookedData$nums[order(seq(-1,-rest))]
+		
+		for (label in nums) {
+			while(rest >5) {
+				while (ind <=5){
+					cRow <- c(cRow, as.character(nums[rest]))
+					rest <- rest - 1
+					ind <- ind + 1
+					}
+				ind <- 1
+				rows[[cRowInd]] <- cRow
+				cRowInd <- cRowInd + 1
+				cRow <- c()
 				}
-			else {
-				output$Signalert <- renderText({"Testing not possible"})
-				output$Pvalue <- renderText({"Please remove outliers in the Plot view."})
-				}
+				
+				cRow <- as.character(nums[seq(rest,1)])
+				rows[[cRowInd]] <- cRow
+			}		
+		
+		for (row in rows) {
+			if (length(row) == 5){
+				wells <- paste(wells, '<div class="row"><div class=col-sm-1></div>', sep="")
+				for (label in row)	{
+					summarize <- paste("<h4>",label, "</h4>","<p>", sep="")
+					mn = round(mean(cookedData$cooked[[label]], na.rm=T),3)
+					quants <-  round(quantile(cookedData$cooked[[label]], c(0,0.25,0.5,0.75,1), na.rm=T),3)
+					nas <- sum(is.na(cookedData$cooked[[label]])|is.nan(cookedData$cooked[[label]]))
+					summarize <- paste(
+						"<h4>",
+						label,
+						"</h4>",
+						"<p>",
+							"Min.:\t",
+							quants[1],
+							"<br/>25%.:\t",
+							quants[2],
+							"<br/>Median.:\t",
+							quants[3],
+							"<br/>Mean.:\t",
+							mn,
+							"<br/>75%.:\t",
+							quants[4],
+							"<br/>Max.:\t",
+							quants[5],							
+							ifelse(nas>1, 
+								paste("<br/>NAs.:\t",nas),
+								""),
+						"</p>",
+						sep=""
+						)
+							summarize <- paste(summarize, "</p>", sep="")
+							wells <- paste(wells, paste('<div class=col-sm-2><div class="well" style="text-align:center">', summarize, "</div></div>", sep=""))
+							}
+				
+				wells <- paste(wells, "<div class=col-sm-1></div></div>", sep="")
 			}
-		if (CurrentTestType  == "spearman") {
-			output$TestDescription <- renderUI({
-				HTML(
-				"The variables you selected could be used for testing through a <b>correlation test</b>.
-				This test takes the two groups of 'scores' (e.g. age/first formant) and compares their values.
-				It determines the strength of the relationship between them - how well does knowing the value of X allow us to predict Y - and determines whether the relationship may be purely 
-				coincidental (e.g. if you have few examples).<br/><br/>
-				Some of the prerequisites of this test were tested automatically by FREDDIE Shiny (normality, heteroscedasticity), but some of them need to be decided by you.<br/>
-				<ul>
-					<li>Are there any outliers in the data? (no values so extreme that they are unrealistic or influencing the whole data too much)</li>
-				</ul>
-				Depending on your answers, a fitting correlation method will be used.")
-				})
-			if (input$Outliers==TRUE) {results <- cor.test(keep[[input$yvar]], keep[[input$xvar]], method="spearman")}
-			else {results <- "none"}
-			if (results != "none"){
-				output$Signalert <- renderText({
-					ifelse(results$p.value<=0.05, "significant", "not significant")
-					})
-				output$Pvalue <- renderText({
-					paste("p ", ifelse(results$p.value<0.001, "< 0.001", paste("= ", (round(results$p.value,3)), sep="")), sep="")
-					})
-				}
-			else {
-				output$Signalert <- renderText({"Testing not possible"})
-				output$Pvalue <- renderText({"Please remove outliers in the Plot view"})
-				}			
-			}
-        # categorial-categorial: if parameters fulfilled, do a chi square test, if not do fisher's exact
-        if (CurrentTestType  == "chisq"){
-			output$TestDescription <- renderUI({
-				HTML(
-				"The variables you selected could be used for testing through a <b>chi-squared test</b>.
-				This test takes the counts of the various combinations in your data (e.g. sex/education) and compares their distribution.
-				It determines whether there is a significant difference between the expected and observed frequencies. For example if you want to see whether the various education levels are represented approximately equally with respect to the individual genders in your data,
-				you could use a chi-squared test to see whether this is the case or not.<br><br/>
-				FREDDIE Shiny has atomatically checked the requirements that the chi-squared test has on your data.")
-				})
-			results <- chisq.test(table(keep[[input$yvar]], keep[[input$xvar]]))
-			output$Signalert <- renderText({
-				ifelse(results$p.value<=0.05, "significant", "not significant")
-				})
-			output$Pvalue <- renderText({
-				paste("p ", ifelse(results$p.value<0.001, "< 0.001", paste("= ", (round(results$p.value,3)), sep="")), sep="")
-				})
-			}
-		if (CurrentTestType  == "fisher") {
-			output$TestDescription <- renderUI({
-				HTML(
-				"The variables you selected could be used for testing through a chi-squared test.
-				This test takes the counts of the various combinations in your data (e.g. sex/education) and compares their distribution.
-				It determines whether there is a significant difference between the expected and observed frequencies. For example if you want to see whether the various education levels are represented approximately equally with respect to the individual genders in your data,
-				you could use a chi-squared test to see whether this is the case or not.<br><br/>
-				FREDDIE Shiny has atomatically checked the requirements that the chi-squared test has on your data. Some of them were not fulfilled, which is why <b>Fisher's exact test</b> is performed instead")
-				})	
-			results <- fisher.test(table(keep[[input$yvar]], keep[[input$xvar]]))
-			output$Signalert <- renderText({
-				ifelse(results$p.value<=0.05, "significant", "not significant")
-				})
-			output$Pvalue <- renderText({
-				paste("p ", ifelse(results$p.value<0.001, "< 0.001", paste("= ", (round(results$p.value,3)), sep="")), sep="")
-				})
-			}
-		if (CurrentTestType  == "none") {
-			output$TestDescription <- renderUI({
-				HTML(
-				"There is currently no test for the variables you selected. If you think support for your variable type is necessary, please contact us <a href='mailto: jiri.zamecnik@anglistik.uni-freiburg.de'>jiri.zamecnik@anglistik.uni-freiburg.de</a>.
-					")
-				})
-			output$Signalert <- renderText({""})
-			output$Pvalue <- renderText({""})
-			results <- invisible()
-			}
-        return(results)
-    })
-    output$Testresults <- renderPrint({
-      Testcode()
-    })
+			
+			if (length(row)!=5){
+				wells <- paste(wells, '<div class="row">','<div class=col-sm-',6-length(row),'></div>', sep="")
+				for (label in row)	{
+					summarize <- paste("<h4>",label, "</h4>","<p>", sep="")
+					mn = round(mean(cookedData$cooked[[label]], na.rm=T),3)
+					quants <-  round(quantile(cookedData$cooked[[label]], c(0,0.25,0.5,0.75,1), na.rm=T),3)
+					nas <- sum(is.na(cookedData$cooked[[label]])|is.nan(cookedData$cooked[[label]]))
+					summarize <- paste(
+						"<h4>",
+						label,
+						"</h4>",
+						"<p>",
+							"Min.:\t",
+							quants[1],
+							"<br/>25%.:\t",
+							quants[2],
+							"<br/>Median.:\t",
+							quants[3],
+							"<br/>Mean.:\t",
+							mn,
+							"<br/>75%.:\t",
+							quants[4],
+							"<br/>Max.:\t",
+							quants[5],							
+							ifelse(nas>1, 
+								paste("<br/>NAs.:\t",nas),
+								""),
+						"</p>",
+						sep=""
+						)
+					summarize <- paste(summarize, "</p>", sep="")
+					wells <- paste(wells, paste('<div class=col-sm-2><div class="well" style="text-align:center">', summarize, "</div></div>", sep=""))
+					}
+				
+				wells <- paste(wells, "<div class=col-sm-",6-length(row),"></div></div>", sep="")			
+
+			}	
+			
+		}		
+				
+		HTML(wells)
+		})
+
+	output$vartype <- renderUI({
+		fil <- sapply(rawData(), class)=="factor"
+		fil2 <- sapply(rawData(), is.numeric)
+		tagList(
+			orderInput('cats', 'Categories', items = colnames(rawData())[fil],
+						as_source = FALSE, connect = c('nums', 'none'), width="100%", item_class="primary"),
+			orderInput('nums', 'Numbers', items = colnames(rawData())[fil2],
+						as_source = FALSE, connect = c('cats', 'none'), width="100%", item_class="primary"),
+			orderInput('none', 'Not analysed', items = colnames(rawData())[!(fil|fil2)],
+						as_source = FALSE, connect = c('cats', 'nums'), width="100%", item_class="default", placeholder="e.g. Names")						
+			)
+		})	
+		
+	output$plotselect <- renderUI({
+	
+		req(cookedData$cooked, cookedData$cats, cookedData$nums)
+		
+		tagList(
+			orderInput('outcome', 'Outcome', items=c(),
+						as_source = FALSE, connect = c('pred', 'source'), width="100%", item_class="primary", placeholder="Choose only the outcome to visualise its distribution"),
+			orderInput('pred', 'Predictors', items = c(),
+						as_source = FALSE, connect = c('outcome', 'source'), width="100%", item_class="primary", placeholder="Up to two predictors"),
+			orderInput('source', 'Not displayed', items = c(cookedData$cats, cookedData$nums),
+						as_source = FALSE, connect = c('outcome', 'pred'), width="100%", item_class="primary")						
+			
+			
+			)
+		})		
+		
+	output$columnNumber <- renderText({
+		req(rawData())
+		as.character(ncol(rawData()))
+		})
+		
+	output$rowNumber <- renderText({
+		req(rawData())
+		as.character(nrow(rawData()))
+		})		
+	
 })

@@ -1,3 +1,5 @@
+@import url(https://fonts.googleapis.com/css?family=Halant:300,400,500,600,700&subset=devanagari,latin,latin-ext);
+
 div.busy { 
   position:absolute;
   top: 40%;
@@ -13,4 +15,25 @@ div.busy {
   padding-right: 30px;
   border-radius: 5px;
   z-index: 999;
+}
+
+
+# Set the font family for the whole page
+.container-fluid {
+	font-family: 'Halant', serif;
+	padding-left: 0px;
+	padding-right: 0px;
+	}
+	
+.navbar-default {
+	padding-left: 10px;
+	padding-right: 10px;
+}	
+	
+.table {
+  border: 1px solid #dddddd;
+}
+
+.ui-sortable {
+	/* text-align: center; */
 }
