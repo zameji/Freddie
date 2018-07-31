@@ -130,7 +130,7 @@ shinyServer(function(input, output) {
 			if (is.numeric(datasetInput()[[input$xvar]])){
 				req(input$inXSlider, input$inXBinSlider)
 				Xdata <- datasetInput()[[input$xvar]]
-				Xdata <- Xdata[Xdata>=input$inXSlider[1] & Xdata=<input$inXSlider[2]]
+				Xdata <- Xdata[Xdata>=input$inXSlider[1] & Xdata<=input$inXSlider[2]]
 				g <- ggplot() +
 					aes(Xdata) +
 					theme_bw() +
@@ -169,7 +169,7 @@ shinyServer(function(input, output) {
 			if (is.numeric(datasetInput()[[input$yvar]])){
 				req(input$inYSlider, input$inYBinSlider)
 				Ydata <- datasetInput()[[input$yvar]]
-				Ydata <- Ydata[Ydata>=input$inYSlider[1] & Ydata=<input$inYSlider[2]]
+				Ydata <- Ydata[Ydata>=input$inYSlider[1] & Ydata<=input$inYSlider[2]]
 				g <- ggplot() +
 					aes(Ydata) +
 					theme_bw() +
