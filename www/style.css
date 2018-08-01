@@ -19,16 +19,66 @@ div.busy {
 
 
 # Set the font family for the whole page
-.container-fluid {
-	font-family: 'Halant', serif;
-	padding-left: 0px;
-	padding-right: 0px;
-	}
+/* #main_title { */
+	/* margin-top: 300px */
+/* } */
+	
+#main_subtitle	{
+	/* margin-top: 300px; */
+	margin-bottom: 50px
+}
 	
 .navbar-default {
 	padding-left: 10px;
+	padding-right: 0px;
+}
+
+
+.lp-well {
+	padding-left: 0px;
+	padding-right: 0px;
+	padding-top: 0px
+}
+
+.lp-main-well {
+	padding-right: 0px;	
+}
+
+.lp-desc {
+	padding-left: 15px;
+	padding-right: 15px;
+	text-align: justify;
+}
+
+.container-fluid {
+	padding-left: 0px;
+	padding-right: 0px;
+	padding-top: 0px;
+	/* padding-bottom: 0px; */
+}
+
+.padded-page{
+	padding-left: 15px;
+	padding-right: 15px;
+	padding-top: 15px
+}
+
+
+.navbar-fixed-top {
+	padding-left: 10px;
 	padding-right: 10px;
 }	
+	
+.landing-page {
+	padding-left: 0px;
+	padding-right: 0px;
+	padding-top: 70px;
+}
+
+.btn {
+	margin-bottom: 15px;
+	
+}
 	
 .table {
   border: 1px solid #dddddd;
@@ -36,4 +86,12 @@ div.busy {
 
 .ui-sortable {
 	/* text-align: center; */
+}
+
+.well {
+	background-color: #ffffff	
+	}
+	
+.tab-content {
+	min-height: calc(100vh - 140px)
 }
