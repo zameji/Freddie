@@ -17,6 +17,14 @@ div.busy {
   z-index: 999;
 }
 
+.body {
+	padding-right: 0px;		
+}
+
+.modal-dialog {
+	margin-left: auto;
+	margin-right: auto;
+}
 
 # Set the font family for the whole page
 /* #main_title { */

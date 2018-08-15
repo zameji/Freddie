@@ -10,7 +10,7 @@ library(ggplot2)
 library(RColorBrewer)	
 
 options(shiny.usecairo=FALSE)
-
+colMax <- function(data) sapply(data, max, na.rm = TRUE)
 bx.stat <- function(inp){return(boxplot.stats(inp)$stats[c(1,5)])}
 cbPalette <- c("#999999", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
 fl_cl <- function(inp){return(c(floor(inp[1]),ceiling(inp[2])))}
@@ -85,6 +85,69 @@ function (x0, edges = 200, labels=NULL, outer.radius = 1,
 	invisible(NULL)
 	}
 
+
+effPlot <-
+function (eff, type, boundary=2, edges = 100, labels=NULL, outer.radius = 1, 
+          inner.radius=0.75,
+          init.angle = 0, density = NULL, 
+          angle = 45, col = NULL, border = FALSE, lty = NULL, 
+          main = NULL, inside=NULL, ...){
+	if (!all(is.numeric(c(eff, boundary)))){stop("'x' values must be factors.")}
+	if (is.null(labels)){labels <- c("", "")}
+	effb <- eff
+	eff <- min(abs(eff), 2)
+
+	x <- abs(c(0, (boundary-eff)/boundary, 1))
+	rat <- abs(0.5*eff/boundary)
+	efcol <- hsv(max(0.5-rat, 0),1,1)
+	col <- c("grey90", efcol)
+	
+	dx <- diff(x)
+	nx <- length(dx)
+	par(mar=c(0,2,1,2))
+	plot.new()
+	pin <- par("pin")
+	xlim <- c(-1, 1)
+	ylim <- c(0,1)
+	if (pin[1L] > pin[2L])
+		{xlim <- (pin[1L]/pin[2L]) * xlim
+	} else {ylim <- (pin[2L]/pin[1L]) * ylim}
+	plot.window(xlim, ylim, "", asp = 1)	
+
+	t2xy <- function(t, radius) {
+		t2p <- pi * t + init.angle * pi/180
+		list(x = radius * cos(t2p), 
+			 y = radius * sin(t2p))
+	}
+	for (i in 1L:nx) {
+		n <- max(50, floor(edges * dx[i]))
+		P <- t2xy(seq.int(x[i], x[i + 1], length.out = n),
+				  outer.radius)
+		polygon(c(P$x, 0), c(P$y, 0), density = density[i], 
+				angle = angle[i], border = border[i], 
+				col = col[i], lty = lty[i])
+		Pout <- t2xy(mean(x[i + 0:1]), outer.radius)
+		lab <- as.character(labels[i])
+		if (!is.na(lab) && nzchar(lab)) {
+			text(1.1 * Pout$x, 1.1 * Pout$y, labels[i], family="serif",
+				 xpd = TRUE, adj = ifelse(Pout$x < 0, 1, 0))
+		}
+	}
+
+		## Add white disc          
+		Pin <- t2xy(seq.int(0, 1, length.out = n*nx),
+				  inner.radius)
+		polygon(Pin$x, Pin$y, density = density[i], 
+				angle = angle[i], border = border[i], 
+				col = "white", lty = lty[i])
+	
+	text(0,0.2,paste(type, ": ", round(effb, 2), sep=""), family="serif", cex=1.25)
+ 	text(-1,-0.2, "Weak", family="serif", cex=1.25)
+	text(1,-0.2,"Strong", family="serif", cex=1.25)
+	title(main = main, ...)
+	invisible(NULL)
+	}
+	
 bend <-
 function (nas, tot, edges = 100, labels=NULL, outer.radius = 1, 
           inner.radius=0.75,
@@ -145,21 +208,36 @@ getna <- function(cc) {
 	cc[ sample(c(TRUE, NA), prob = c(0.95, 0.05), size = length(cc), replace = TRUE) ]
 	}
 	
+getEffLab <- function(eff) {
+	if (eff <0.8){
+		if (eff < 0.2) {return("very small")}
+		else if (eff < 0.5) {return("small")}
+		else {return("medium")}
+		}
+	else {
+		if (eff < 1.2) {return("large")}
+		else if (eff < 2) {return("very large")}
+		else {return("huge")}	
+		}
+	}
 	
 randdata <- function(){
+	seed0 <- round(rnorm(100, 100, 25))
 	rd <- data.frame(
 		gender=c(sample(c(rep("female",10),rep("male",8)), 50, replace=T), 
 			sample(c(rep("female",8),rep("male",10)), 50, replace=T)),
 		age=c(round(runif(50,min=10,max=30),0), round(runif(50,min=20,max=45),0)),
 		education=c(sample(c(rep("university",7),rep("high",5),rep("elementary",2),rep("doctorate",10)),50,replace=T),
 			sample(c(rep("university",5),rep("high",7),rep("elementary",10),rep("doctorate",2)),50,replace=T)),
-		residence=c(sample(c(rep("E",7),rep("M",5),rep("W",1)),50,replace=T),
-			sample(c(rep("E",2),rep("M",7),rep("W",10)),50,replace=T)),
-		birthplace=c(sample(c(rep("E",5),rep("M",4),rep("W",1)),50,replace=T),
-			sample(c(rep("E",3),rep("M",8),rep("W",15)),50,replace=T)),	
+		residence=c(sample(c(rep("East",7),rep("Mid",5),rep("West",1)),50,replace=T),
+			sample(c(rep("East",2),rep("Mid",7),rep("West",10)),50,replace=T)),
+		birthplace=c(sample(c(rep("East",5),rep("Mid",4),rep("West",1)),50,replace=T),
+			sample(c(rep("East",3),rep("Mid",8),rep("West",15)),50,replace=T)),	
 		rhoticity=c(abs(round(rnorm(50,0.2, 0.1),2)),abs(round(rnorm(50,0.5, 0.1),2))),
 		glottalisation=c(sample(c(rep("preconsonantal",7), rep("preconsonantal+initial",1), rep("none",10)),50,replace=T),
-			sample(c(rep("preconsonantal",7), rep("preconsonantal+initial",3), rep("none",1)),50,replace=T))
+			sample(c(rep("preconsonantal",7), rep("preconsonantal+initial",3), rep("none",1)),50,replace=T)),
+		before_class=seed0,
+		after_class=seed0+rnorm(100,20,25)
 		)
 		
 	rd <- as.data.frame(lapply(rd, getna))
@@ -217,9 +295,10 @@ shinyServer(function(input, output, session) {
 	cookedData <- reactiveValues(cats=NULL, nums=NULL, cooked=NULL)				
 	plotType <- reactiveValues(current=NULL)
 	importSettings <- reactiveValues(header=TRUE, sep="\t", quoter='"')	
-	testSet <- reactiveValues(settings=NULL, vals=NULL, test=NULL)
+	testSet <- reactiveValues(settings=NULL, vals=NULL)
 	settings <- reactiveValues(na.ignore="ignore", mod="real")
-
+	summaryVals <- reactiveValues(freqs=NULL)
+	anovaGroups <- reactiveValues(level=NULL, finished=NULL)
 	
 	observeEvent(input$upFile, {
 		settings$mod <- "real"
@@ -295,6 +374,10 @@ shinyServer(function(input, output, session) {
 				if (is.factor(cookedData$cooked[[label]])){cookedData$cooked[[label]] <- as.numeric(cookedData$cooked[[label]])}
 				}
 			}
+			
+		# colnames(cookedData$cooked) <- gsub("_", " ", colnames(cookedData$cooked))
+		# names(cookedData$cats) <- gsub("_", " ", names(cookedData$cats))
+		# names(cookedData$nums) <- gsub("_", " ", names(cookedData$nums))
 		}
 	
 	# Observer waiting for the upload of a file --> once its done the page Data check is activated and selected
@@ -334,9 +417,7 @@ shinyServer(function(input, output, session) {
 			}
 		list(outcome=input$outcome_order, pred=input$pred_order)		
 		})
-	
-
-	
+		
 	observeEvent(input$bigUnfriendlyButton, {
 		showModal(
 			modalDialog(
@@ -447,8 +528,41 @@ shinyServer(function(input, output, session) {
 		
 	observeEvent(input$grComp, {
 		updateNavbarPage(session, 'mainnavbar', selected = 'Groups ')
-		removeModal()
+		showModal(
+			modalDialog(
+				title="Select groups",
+				fade=FALSE,
+				fluidRow(
+					column(6,
+						wellPanel(align="center", actionLink("grSelAuto","Select groups defined in the data"))
+						),
+					column(6,
+						wellPanel(align="center", actionLink("grSelMan","Select groups manually"))
+						)
+					)
+				)
+			)
+
 		})
+		
+	observeEvent(input$grSelAuto, {
+		showModal(
+			modalDialog(
+				title="Select columns",
+					orderInput('sels', 'Column to evaluate', items=c(),
+								as_source = FALSE, connect = c('ns', 'cs'), width="100%", item_class="success", placeholder="Select the column "),
+					orderInput('sels', 'Column to evaluate', items=c(),
+								as_source = FALSE, connect = c('ns', 'cs'), width="100%", item_class="success", placeholder="Select two or more columns to compare"),					
+					orderInput('ns', 'Numbers', items =  nums,
+								as_source = FALSE, connect = c('cs', 'sels'), width="100%", item_class="primary", placeholder="Numeric variables"),
+					orderInput('cs', 'Categories', items = cats,
+								as_source = FALSE, connect = c('ns', 'sels'), width="100%", item_class="primary", placeholder="Categoric variables"),						
+					
+				footer=actionButton("ok_grs", "OK"), fade = FALSE
+				)		
+			)
+	
+		})	
 		
 	observeEvent(input$colPred, {
 		updateNavbarPage(session, 'mainnavbar', selected = 'Columns')		
@@ -457,35 +571,40 @@ shinyServer(function(input, output, session) {
 		showModal(
 			modalDialog(
 				title="Select columns",
-					orderInput('sels', 'Columns to compare', items=c(),
-								as_source = FALSE, connect = c('ns', 'cs'), width="100%", item_class="success", placeholder="Select two or more columns to compare"),
+					orderInput('outp', 'Column to predict', items=c(),
+								as_source = FALSE, connect = c('ns', 'cs', 'pred'), width="100%", item_class="success", placeholder="Select the column to predict"),
+					orderInput('pred', 'Columns with predictors', items=c(),
+								as_source = FALSE, connect = c('ns', 'cs', 'outp'), width="100%", item_class="success", placeholder="Select one or more columns as predictors"),								
 					orderInput('ns', 'Numbers', items =  cookedData$nums,
-								as_source = FALSE, connect = c('cs', 'sels'), width="100%", item_class="primary", placeholder="Numeric variables"),
+								as_source = FALSE, connect = c('cs', 'outp', 'pred'), width="100%", item_class="primary", placeholder="Numeric variables"),
 					orderInput('cs', 'Categories', items = cookedData$cats,
-								as_source = FALSE, connect = c('ns', 'sels'), width="100%", item_class="primary", placeholder="Categoric variables"),							
-				footer=actionButton("ok_cols", "OK"), fade = FALSE
+								as_source = FALSE, connect = c('ns', 'outp', 'pred'), width="100%", item_class="primary", placeholder="Categoric variables"),							
+				footer=actionButton("ok_colp", "OK"), fade = FALSE
 				)
 			)
 		})	
 
 	observeEvent(input$colPChange, {
-		updateNavbarPage(session, 'mainnavbar', selected = 'Columns ')
+		updateNavbarPage(session, 'mainnavbar', selected = 'Columns')
 		testSet$settings <- "colComp"
 		req(cookedData$cooked, cookedData$cats, cookedData$nums)
-		labs <- colnames(testSet$vals)
+		outp <- input$outp_order
+		preds <- input$pred_order
+		labs <- unique(c(outp, preds))
 		cats <- cookedData$cats[(!cookedData$cats %in% labs)]
 		nums <- cookedData$nums[(!cookedData$nums %in% labs)]
 		showModal(
 			modalDialog(
 				title="Select columns",
-					orderInput('sels', 'Columns to compare', items=labs,
-								as_source = FALSE, connect = c('ns', 'cs'), width="100%", item_class="success", placeholder="Select two or more columns to compare"),
+					orderInput('outp', 'Column to predict', items=outp,
+								as_source = FALSE, connect = c('ns', 'cs', 'pred'), width="100%", item_class="success", placeholder="Select the column to predict"),
+					orderInput('pred', 'Columns with predictors', items=preds,
+								as_source = FALSE, connect = c('ns', 'cs', 'outp'), width="100%", item_class="info", placeholder="Select one or more columns as predictors"),								
 					orderInput('ns', 'Numbers', items =  nums,
-								as_source = FALSE, connect = c('cs', 'sels'), width="100%", item_class="primary", placeholder="Numeric variables"),
+								as_source = FALSE, connect = c('cs', 'outp', 'pred'), width="100%", item_class="primary", placeholder="Numeric variables"),
 					orderInput('cs', 'Categories', items = cats,
-								as_source = FALSE, connect = c('ns', 'sels'), width="100%", item_class="primary", placeholder="Categoric variables"),						
-					
-				footer=actionButton("ok_cols", "OK"), fade = FALSE
+								as_source = FALSE, connect = c('ns', 'outp', 'pred'), width="100%", item_class="primary", placeholder="Categoric variables"),							
+				footer=actionButton("ok_colp", "OK"), fade = FALSE
 				)
 			)
 		})
@@ -534,7 +653,73 @@ shinyServer(function(input, output, session) {
 
 		})
 		
-		
+	observeEvent(input$ok_colp, {
+		if (length(input$outp_order)==1 & length(input$pred_order)>0) {
+			testSet$vals <- cookedData$cooked[,c(input$outp_order, input$pred_order)]
+			removeModal()
+			}
+			
+		else if (length(input$outp_order)!=1) {testSet$vals <- NULL
+			if (length(input$outp_order)!=0 | length(input$outp_order)!=0){
+				outp <- input$outp_order
+				preds <- input$pred_order
+				labs <- unique(c(outp, preds))
+				cats <- cookedData$cats[(!cookedData$cats %in% labs)]
+				nums <- cookedData$nums[(!cookedData$nums %in% labs)]
+				}
+			else {
+				if(length(input$outp_order)==0) {outp <- c()} else {outp <- input$outp_order}
+				if(length(input$pred_order)==0) {preds <- c()} else {preds <- input$pred_order}
+				labs <- unique(c(outp, preds))
+				cats <- cookedData$cats[(!cookedData$cats %in% labs)]
+				nums <- cookedData$nums[(!cookedData$nums %in% labs)]
+				}
+			showModal(modalDialog(
+				title="ERROR",
+					h4("Select one column to be predicted", style="font-face: bold; color: red"),
+					orderInput('outp', 'Column to predict', items=outp,
+								as_source = FALSE, connect = c('ns', 'cs', 'pred'), width="100%", item_class="success", placeholder="Select the column to predict"),
+					orderInput('pred', 'Columns with predictors', items=preds,
+								as_source = FALSE, connect = c('ns', 'cs', 'outp'), width="100%", item_class="info", placeholder="Select one or more columns as predictors"),								
+					orderInput('ns', 'Numbers', items =  nums,
+								as_source = FALSE, connect = c('cs', 'outp', 'pred'), width="100%", item_class="primary", placeholder="Numeric variables"),
+					orderInput('cs', 'Categories', items = cats,
+								as_source = FALSE, connect = c('ns', 'outp', 'pred'), width="100%", item_class="primary", placeholder="Categoric variables"),							
+				footer=actionButton("ok_colp", "OK")			
+				))
+			}
+			
+		else {testSet$vals <- NULL
+			if (length(input$outp_order)!=0 | length(input$outp_order)!=0){
+				outp <- input$outp_order
+				preds <- input$pred_order
+				labs <- unique(c(outp, preds))
+				cats <- cookedData$cats[(!cookedData$cats %in% labs)]
+				nums <- cookedData$nums[(!cookedData$nums %in% labs)]
+				}
+			else {
+				if(length(input$outp_order)==0) {outp <- c()} else {outp <- input$outp_order}
+				if(length(input$pred_order)==0) {preds <- c()} else {preds <- input$pred_order}
+				labs <- unique(c(outp, preds))
+				cats <- cookedData$cats[(!cookedData$cats %in% labs)]
+				nums <- cookedData$nums[(!cookedData$nums %in% labs)]
+				}
+			showModal(modalDialog(
+				title="ERROR",
+					h4("Select some predictors", style="font-face: bold; color: red"),
+					orderInput('outp', 'Column to predict', items=outp,
+								as_source = FALSE, connect = c('ns', 'cs', 'pred'), width="100%", item_class="success", placeholder="Select the column to predict"),
+					orderInput('pred', 'Columns with predictors', items=preds,
+								as_source = FALSE, connect = c('ns', 'cs', 'outp'), width="100%", item_class="info", placeholder="Select one or more columns as predictors"),								
+					orderInput('ns', 'Numbers', items =  nums,
+								as_source = FALSE, connect = c('cs', 'outp', 'pred'), width="100%", item_class="primary", placeholder="Numeric variables"),
+					orderInput('cs', 'Categories', items = cats,
+								as_source = FALSE, connect = c('ns', 'outp', 'pred'), width="100%", item_class="primary", placeholder="Categoric variables"),							
+				footer=actionButton("ok_colp", "OK")			
+				))
+			}
+
+		})		
 		
 	observeEvent(input$selGrs, {
 		# toggleModal(session, "grSel", toggle="open")
@@ -568,7 +753,88 @@ shinyServer(function(input, output, session) {
 		removeModal()
 		
 		})
+	
+	observeEvent(input$ok_anova,{
+	
+		req(testSet$vals)
+		if (is.null(anovaGroups$level)){
+			grs <- levels(testSet$vals[,1])
+			}
+		else {
+			grs <- anovaGroups$choice
+			}	
 		
+		# 1. check input validity
+		if (length(input$gr1_order)==0 | length(input$gr2_order)==0) {
+			showModal(
+				modalDialog(
+				title="ERROR",
+				h4("Not enough data - both groups need to contain at least one", style="font-face: bold; color: red"),
+				p("Divide the labels into two groups that will be contrasted to each other. Labels that are not moved into either of the groups will be neglected in further comparisons."),
+				fluidRow(
+					column(6,
+						wellPanel(align="center",
+							orderInput('gr1', 'Group 1', items=c(),
+							as_source = FALSE, connect = c('labSource', 'gr2'), width="100%", item_class="primary", placeholder="")
+							)),
+					column(6,
+						wellPanel(align="center",
+							orderInput('gr2', 'Group 2', items=c(),
+							as_source = FALSE, connect = c('labSource', 'gr1'), width="100%", item_class="primary", placeholder="")				
+							))
+					),
+				fluidRow(column(12,
+					wellPanel(align="center",
+						orderInput('labSource', 'Available groups', items=grs,
+						as_source = FALSE, connect = c('gr1', 'gr2'), width="100%", item_class="primary", placeholder="")					
+						))),
+				footer=actionButton("ok_anova", "OK"),
+				fade=FALSE
+					)
+				)
+			}
+		# 2. increment level by 1
+		if (is.null(anovaGroups$level)){anovaGroups$level <- 1}
+		else {anovaGroups$level <- anovaGroups$level + 1}
+		
+		
+		# 3. save left + right group
+		anovaGroups$groups[paste(anovaGroups$level)] <- list(left=input$gr1_order, right=input$gr2_order)
+		
+		# 4. Offer to proceed with one of the groups
+		showModal(
+			modalDialog(
+				title="Set next contrast",
+				p("You can now further subdivide one of the groups, if it consists of multiple labels. To do so, draw the labels into the appropriate bin."),
+				h4(style="color: red", "IMPORTANT: Do not mix the labels from multiple groups!"),
+				fluidRow(
+					column(6,
+						wellPanel(align="center",
+							orderInput('gr1', 'Group 1', items=c(),
+							as_source = FALSE, connect = c('labSource', 'gr2'), width="100%", item_class="primary", placeholder="")
+							)),
+					column(6,
+						wellPanel(align="center",
+							orderInput('gr2', 'Group 2', items=c(),
+							as_source = FALSE, connect = c('labSource', 'gr1'), width="100%", item_class="primary", placeholder="")				
+							))
+					),
+				fluidRow(column(6,
+					wellPanel(align="center",
+						orderInput('labSource', 'Available groups', items=grs,
+						as_source = FALSE, connect = c('gr1', 'gr2'), width="100%", item_class="primary", placeholder="")					
+						))),					
+				)
+			)
+		# 5. display that group
+	
+		})
+	
+	observeEvent(input$doneAnova, {
+		anovaGroups$finished <- TRUE
+		})
+		
+
 	output$outplot <- renderPlot({
 
 		req(cookedData$cooked, plotinput())		
@@ -651,12 +917,8 @@ shinyServer(function(input, output, session) {
 				# Mixed predictors --> scatterplot with character mapping
 				else {
 					fil <- pars$pred %in% cookedData$nums
-					p <- ggplot(plotSet, aes_string(x=pars$pred[fil], y=pars$outcome, pch=pars$pred[!fil]))
-					p <- p + geom_point()
-
-					###
-					# ADD FACET_WRAP
-					###
+					p <- ggplot(plotSet, aes_string(x=pars$pred[fil], y=pars$outcome))
+					p <- p + geom_point() + facet_wrap(pars$pred[!fil])
 					
 					}
 				}
@@ -768,8 +1030,7 @@ shinyServer(function(input, output, session) {
 			
 			}		
 		})
-	
-	
+		
 	output$settings <- renderUI({
 		req(settings$na.ignore)
 		
@@ -821,13 +1082,6 @@ shinyServer(function(input, output, session) {
 					)
 				}
 			else {invisible()}
-
-
-		# <- paste('<h3 style="text-align: center">Overall</h3>', 
-			# "<div class=row><div class=col-sm-3></div>", 
-			# '<div class=col-sm-6><div class=well style="text-align:center>"',
-				# plotOutput("naPlot" ,height="200px", width="100%"),
-			# "</div><div class=col-sm-3></div></div></div>")
 		
 		})
 	
@@ -1065,25 +1319,29 @@ shinyServer(function(input, output, session) {
 		})
 	
 	output$testSettings <- renderUI({
-		req(testSet$settings)
-		if (testSet$settings %in% c("numbers2", "ttest", "wilcox")){
+		req(testSet$settings, testSet$vals)
+		
+			
+		if (ncol(testSet$vals)==2 & all(colnames(testSet$vals) %in% cookedData$nums)){
 			tagList(
 				fluidRow(
 					column(3),
 					column(6,
 						wellPanel(align="center",
 							h3("Test setup"),
-							hr()
+							hr(),
 							h4("Data"),
 							checkboxInput("paired", "Individual rows form pairs", FALSE),
+							hr(),
 							h4("Hypothesis"),
-							radioButtons("tails", paste("The mean in", colnames(testSet$vals)[1], "is:"), c(
+							selectInput("tails", paste("The mean in", colnames(testSet$vals)[1], "is:"), c(
 								"Lower"="less",
 								"Different"="two.sided",
 								"Higher"="greater"),
 								selected="two.sided"
 								),
-							p(style="face:bold", paste("in comparison to", colnames(testSet$vals)[2]))
+							p(style="font-weight:700; font-size: 14px ", paste("in comparison to", colnames(testSet$vals)[2])),
+							actionButton("doTest", "Save", style="background-color: green; color: white")
 							)
 						),
 					column(3)
@@ -1091,76 +1349,620 @@ shinyServer(function(input, output, session) {
 				)
 			}
 			})
-	
-	output$testOutput <- renderUI({
+			
+	doChisq <- function(dat) {
+		# Check that we can do X-squared:
+		#1. Check that there is an overlap in the levels
+		c1 <- dat[,1]
+		c2 <- dat[,2]
 
+		if (!any(levels(c1) %in% levels(c2))){
+			return(list(results=NULL, type="applesToOranges"))
+			}
+		else {
+			# Merge the levels in both columns, so that levels not present in col A equal to 0 rather than error, remove NAs
+			levs <- sort(unique(c(levels(c1), levels(c2))))
+			levs <- levs[!is.na(levs)]
+			if (settings$na.ignore == "ignore"){
+				c1 <- c1[!is.na(c1)]
+				c2 <- c2[!is.na(c2)]
+				}
+				
+			c1 <- factor(c1, levels=levs)
+			c2 <- factor(c2, levels=levs)	
+			
+			t1 <- as.vector(table(c1))
+			t2 <- as.vector(table(c2))
+			
+			comp <- t1 < t2
+			
+			tab <- data.frame(t1,t2)
+			
+			forplot <- factor(c(as.character(c1), as.character(c2)))
+			forplot <- data.frame(id=c(rep(colnames(dat)[1], length(c1)),rep(colnames(dat)[2], length(c2))) ,values=forplot)			
+			p.obj <- ggplot(forplot, aes(id, fill=values)) + geom_bar(position=position_dodge()) + theme_bw()
+			#There should not be any zeros or expected values below 5 
+			cond1 <- sum(tab==0)
+			cond2 <- getExp(tab)
+			
+			if (cond1 == 0 & !any(cond2 < 5)){
+				t.obj <- suppressWarnings(chisq.test(tab))
+				rownames(t.obj$observed) <- levs
+				colnames(t.obj$observed) <- colnames(dat)
+				return(list(results=t.obj, type="chisq2", larger=levs[comp], smaller=levs[!comp], plot=p.obj))
+				}
+				
+			else {		
+				t.obj <- suppressWarnings(fisher.test(tab))
+				t.obj$observed <- tab
+				rownames(t.obj$observed) <- levs
+				colnames(t.obj$observed) <- colnames(dat)		
+				return(list(results=t.obj, type="fisher2", larger=levs[comp], smaller=levs[!comp], plot=p.obj))
+				}
+				
+			}
+		
+	}	
+	
+	doTtest <- function(dat){
+		# Check that we can do t-test
+		c1 <- dat[,1]
+		c2 <- dat[,2]
+		
+		req(input$doTest > 0)
+		
+		pars <- isolate(list(tails=input$tails, paired=input$paired))
+		
+		if (settings$na.ignore == "ignore"){
+			if (pars$paired) {
+				mask <- !(is.na(c1)|is.na(c2))
+				c1 <- c1[mask]
+				c2 <- c2[mask]
+				}
+				
+			else {
+				c1 <- c1[!is.na(c1)]
+				c2 <- c2[!is.na(c2)]
+				}
+				
+		}
+
+		
+		forplot <- data.frame(
+			group=colnames(dat),
+			means=c(mean(c1), mean(c2)),
+			sds=c(sd(c1), sd(c2))
+			)
+		
+		lc1 <- length(c1)
+		lc2 <- length(c2)
+		forplot$se <- forplot$sds/sqrt(c(lc1, lc2))
+
+		p.obj <- ggplot(forplot, aes(x=group, y=means, fill=group))+
+			geom_bar(stat="identity")+
+			geom_errorbar(aes(ymin=means-se, ymax=means+se),
+						  width=.2,                    # Width of the error bars
+						  position=position_dodge(.9))+
+			theme_bw()+
+			scale_fill_brewer(palette="Accent")	+
+			ylab("mean")
+			
+		larger <- forplot[forplot$means==max(forplot$means), "means"]
+		names(larger) <- forplot[forplot$means==max(forplot$means), "group"]
+		smaller <- forplot[forplot$means==min(forplot$means), "means"]
+		names(smaller) <- forplot[forplot$means==min(forplot$means), "group"]	
+		
+		## TO DO: 
+		# EFF SIZE: For equal samples, use Cohen's d
+		if (lc1==lc2) {
+			eff <- (forplot$means[1] - forplot$means[2])/
+				(sum(forplot$sds*(c(lc1, lc2)-1))/
+					(lc1+lc2-2))
+			names(eff) <- "Cohen's d"		
+			}
+						
+		# For unequal samples, use Hedge's g	
+		else {eff <- (1-(3/((4*(lc1+lc2))-9)))*((forplot$means[1] - forplot$means[2])/
+				(sum(forplot$sds*(c(lc1, lc2)-1))/
+					(lc1+lc2-2)))
+			names(eff) <- "Hedge's d"		
+					}
+		
+		sumTab <- forplot[, c("means", "sds", "se")]
+		colnames(sumTab) <- c("Mean", "SD", "SE")
+		rownames(sumTab) <- forplot$group
+		
+		if (pars$paired==TRUE) {
+
+			cond1 <- shapiro.test(c1-c2)$p.value >= 0.05
+			if (cond1) {
+				testLog$results <- suppressWarnings(t.test(c1, c2, paired=T, alternative=pars$tails))
+				return(list(results=t.obj, type="ttest2", plot=p.obj, larger=larger, smaller=smaller, sumTab=sumTab, eff=eff))
+				}
+			else {
+				t.obj <- suppressWarnings(wilcox.test(c1, c2, paired=T, alternative=pars$tails))
+				return(list(results=t.obj, type="wilcox2", plot=p.obj, larger=larger, smaller=smaller, sumTab=sumTab, eff=eff))
+				}
+			
+			}
+
+		else {
+			cond1 <- shapiro.test(c1)$p.value >= 0.05
+			cond2 <- shapiro.test(c2)$p.value >= 0.05
+			cond3 <- var.test(c1, c2)$p.value >= 0.05
+			
+			if (all(cond1, cond2, cond3)) {
+				t.obj <- suppressWarnings(t.test(c1, c2, paired=F, alternative=pars$tails))
+				return(list(results=t.obj, type="ttest2", plot=p.obj, larger=larger, smaller=smaller, sumTab=sumTab, eff=eff))
+				}
+				
+			else {
+				t.obj <- suppressWarnings(wilcox.test(c1, c2, paired=F, alternative=pars$tails))
+				return(list(results=t.obj, type="wilcox2", plot=p.obj, larger=larger, smaller=smaller, sumTab=sumTab, eff=eff))
+				}						
+			}
+		
+	
+		}
+	
+	doAnova <- function(dat){
+		
+		grs <- levels(dat[,1])
+		
+		anovaGroups$finished <- NULL		
+		getContrasts(grs)
+		
+		# DO NOT EXECUTE UNTIL CONTRASTS ARE SET
+		req(anovaGroups$finished)
+		
+		
+		}
+	
+	observeEvent(input$saveConts, {
+		anovaGroups$groupMatrix[, input$gr1_order] <- anovaGroups$groupnos[1]
+		anovaGroups$groupMatrix[, input$gr2_order] <- anovaGroups$groupnos[2]
+		anovaGroups$finished <- TRUE
+		removeModal()
+		})
+
+	observeEvent(input$nextConts, { 
+		anovaGroups$level <- anovaGroups$level + 1	
+		anovaGroups$groupMatrix[anovaGroups$level, input$gr1_order] <- anovaGroups$groupnos[1]
+		anovaGroups$groupMatrix[anovaGroups$level, input$gr2_order] <- anovaGroups$groupnos[2]
+								
+		inps <- c("gr1", "gr2", paste("anovaInp", seq(1,max(anovaGroups$groupnos))))
+		inps <- gsub(" ", "", inps)
+		
+		anovaGroups$groupnos <- anovaGroups$groupnos + 2
+		groups	<- colnames(anovaGroups$groupMatrix)
+		
+		groupItems <- list("initial" = c(1,2,3))
+		
+		for (inp in inps[-c(1,2)]) {
+			inpNo <- as.integer(gsub("anovaInp", "", inp))
+			# print(inpNo)
+			fil <- colMax(anovaGroups$groupMatrix)==inpNo
+			its <- groups[fil]
+			# print(its)
+			if (length(its) > 0){groupItems[[inp]] <- its}
+			}
+		
+		# str(groupItems)
+		showModal(
+			modalDialog(
+				title="Set contrast",
+				p("You can now divide the labels into groups. To do so, draw the labels into the appropriate bin. Labels left aside will still be used in the overall evaluation."),
+				fluidRow(
+					column(6,
+						wellPanel(align="center",
+							orderInput('gr1', 'Group 1', items=c(),
+							as_source = FALSE, connect = inps[inps!="gr1"], width="100%", item_class="primary", placeholder="")
+							)),
+					column(6,
+						wellPanel(align="center",
+							orderInput('gr2', 'Group 2', items=c(),
+							as_source = FALSE, connect =  inps[inps!="gr2"], width="100%", item_class="primary", placeholder="")				
+							))
+					),
+				tagList(
+					lapply(1:length(names(groupItems)[names(groupItems)!="initial"]), function(x) {
+						i <- names(groupItems)[names(groupItems)!="initial"][x]
+						# print(i)
+						# print(groupItems[i])
+						print(inps[inps!=i])
+							wellPanel(align="center",
+								orderInput(i, paste('Comparison ', gsub("anovaInp", "", i, fixed=T), separator="", collapse=""), items=groupItems[[i]],
+								as_source = FALSE, connect = inps[inps!=i], width="100%", item_class="primary", placeholder="")								
+								)
+						})
+						
+					),
+				footer=tagList(
+					actionButton("nextConts", "Next contrast"),
+					actionButton("saveConts", "Done")
+					),
+				fade=FALSE
+				)				
+			)
+	
+		})
+		
+	getContrasts <- function(groups){
+		
+		anovaGroups$groupMatrix <- data.frame(matrix(ncol=length(groups), nrow=10))
+		colnames(anovaGroups$groupMatrix) <- groups
+				
+		anovaGroups$groupMatrix[1,] <- 1
+		anovaGroups$level <- 1		
+		anovaGroups$groupnos <- c(2,3)
+						
+		showModal(
+			modalDialog(
+				title="Set contrasts",
+				p("You can now divide the labels into groups. To do so, draw the labels into the appropriate bin. Labels left aside will still be used in the overall evaluation."),
+				fluidRow(
+					column(6,
+						wellPanel(align="center",
+							orderInput('gr1', 'Group 1', items=c(),
+							as_source = FALSE, connect = c("gr2", "inp1"), width="100%", item_class="primary", placeholder="")
+							)),
+					column(6,
+						wellPanel(align="center",
+							orderInput('gr2', 'Group 2', items=c(),
+							as_source = FALSE, connect =  c("gr1", "inp1"), width="100%", item_class="primary", placeholder="")				
+							))
+					),
+				fluidRow(						
+					column(12,
+						wellPanel(align="center",
+							orderInput('anovaInp1', 'Labels available', items=groups,
+							as_source = FALSE, connect = c("gr1", "gr2"), width="100%", item_class="primary", placeholder="")				
+							)
+						)					
+					),
+				footer=tagList(
+					actionButton("nextConts", "Next contrast"),
+					actionButton("saveConts", "Done")
+					)
+				)
+			)
+		}
+	
+	
+	testRes <- reactive({
 		req(testSet$settings, testSet$vals)
 		
 		if (testSet$settings == "colComp") {
 			if (ncol(testSet$vals)==2){
 				if (all(colnames(testSet$vals) %in% cookedData$cats)) {
-					# Check that we can do X-squared:
-					#1. Check that there is an overlap in the levels
-					c1 <- testSet$vals[,1]
-					c2 <- testSet$vals[,2]
-					
-					if (!any(levels(c1) %in% levels(c2))){t.obj <- "applesToOranges"
-						testSet$test <- "none"
-						}
-					else {
-						# Merge the levels in both columns, so that levels not present in col A equal to 0 rather than error, remove NAs
-						levs <- sort(unique(c(levels(c1), levels(c2))))
-						levs <- levs[!is.na(levs)]
-
-						c1 <- c1[!is.na(c1)]
-						c2 <- c2[!is.na(c2)]
-						
-						c1 <- factor(c1, levels=levs)
-						c2 <- factor(c2, levels=levs)	
-						
-						t1 <- as.vector(table(c1))
-						t2 <- as.vector(table(c2))
-						
-						gt1 <- t1 > t2
-						gt2 <- t2 > t1
-						
-						tab <- data.frame(t1,t2)
-						
-						#There should not be any zeros or expected values below 5 
-						cond1 <- sum(tab==0)
-						cond2 <- getExp(tab)
-						
-						if (cond1 == 0 & !any(cond2 < 5)){
-							t.obj <- chisq.test(t1, t2)
-							testSet$test <- "chisq2"
-							}
-							
-						else {		
-							t.obj <- fisher.test(t1, t2)
-							testSet$test <- "fisher2"
-							}
-							
-						}
-
+						return(doChisq(testSet$vals))
 					}
 				if (all(colnames(testSet$vals) %in% cookedData$nums)) {
-					# Check that we can do t-test
-					c1 <- testSet$vals[,1]
-					c2 <- testSet$vals[,2]
-					testSet$settings <- "numbers2"
-					
-					req(input$tails, input$paired)
-					
-					print(input$tails)
-					print(input$paired)
-				
+						return(doTtest(testSet$vals))
 					}
 				}
-			else {}
-			
-			}
-	
-		})
+				
+			if (ncol(testSet$vals)>2){
+				if (all(colnames(testSet$vals) %in% cookedData$cats)) {
+						return(doBigChisq(testSet$vals))
+					}
+				if (all(colnames(testSet$vals) %in% cookedData$nums)) {
+					ids <- colnames(testSet$vals)
+					dat <- data.frame(id=c(), values=c())
+					for (i in ids) {
+						dat <- rbind(dat, data.frame(id=rep(i, length(testSet$vals[, i])), values=testSet$vals[, i]))
+						}
+					
+					dat$id <- factor(dat$id)
+					testSet$vals <- dat
+					
+					return(doAnova(testSet$vals))
+					}				
+				}	
 		
 
+			}
+			
+
+		if (testSet$settings == "grPred") {
+
+			}
+			
+		if (testSet$settings == "colPred") {
+			outp <- input$outp_order
+			preds <- input$pred_order
+			
+			
+			dat <- cookedData$cooked[,c(outp, preds)]
+			if (settings$na.ignore == "ignore"){
+				mask <- rowSums(is.na(dat))==0
+				dat <- dat[mask]
+				}
+			
+			# LINEAR REGRESSION
+			if (outp %in% cookedData$nums){
+				lin <- cor(dat, method="pearson")[preds,outp]-cor(fd, method="spearman")[preds,outp]
+				lin <- lin[lin>0.1]
+				
+				mod <- lm(reformulate(termlabels = preds, response = outp), dat)
+				
+				
+				
+				return(list(results=mod, type="linreg", lin=lin))
+				# create a summary for factors?
+				
+				# create a summary for factors?
+				
+				}
+				
+			# LOGISTIC REGRESSION/DECISION TREES?	
+			if (outp %in% cookedData$cats) {
+				
+				mod <- glm(reformulate(termlabels = preds, response = outp), dat, family="binomial")
+				return(list(results=mod, type="logreg"))
+				# create a summary for factors?
+				
+				}	
+				
+			}
+
+		})
+
+
+		
+	# CREATE THE SUMMARY
+	output$testOutput <- renderUI({
+					
+		req(testRes(), testSet$vals)
+		inp <- testRes()
+
+			
+		if (inp$type %in% c("chisq2", "fisher2")) {
+
+			n <- gsub("_", " ", colnames(testSet$vals))
+			tagList(
+				fluidRow(
+					column(2),			
+					column(4,
+						#Summarize the test
+						wellPanel(align="center",
+							h4("Test"),
+							p(inp$results$method),
+							br(),
+							p(paste("p-value:",  max(round(inp$results$p.value, 4), 0.0001))),
+							if (inp$results$p.value<0.05) {p(style="color: green; font-weight:400", "significant")
+								} else {p(style="color: green; font-weight:400", "not significant")}
+							)
+						),
+					column(4,
+						#Summarize the data
+						wellPanel(align="center",
+							h4("Comparison"),
+							uiOutput("freqComparison")
+							)
+						),						
+					column(2)
+					),
+					
+				fluidRow(
+					column(2),
+					column(8,
+						wellPanel(align="center",
+							fluidRow(
+								column(3, tableOutput("testTable")),
+								column(1),
+								column(8, plotOutput("testPlot"))								
+								)
+							)
+						),
+					column(2)
+					),
+					
+				fluidRow(
+					column(2),
+					column(8,
+						wellPanel(
+							h4("Summary"),
+							br(),
+							p(gsub(" .", ".",
+								paste("The distribution of the variables ", paste(sort(c(inp$larger, inp$smaller)), collapse=", "), " was evaluated with ", 
+									inp$results$method,". The fact that the p-value yielded by the test was ", ifelse(inp$results$p.value<0.05, "below", "above"), 
+									" the significance level ", 
+									ifelse(inp$type=="chisq2", 
+										sprintf("(p< %g, chi-squared= %g, df=%i) ",  max(round(inp$results$p.value, 4), 0.0001), round(inp$results$statistic, 3), inp$results$parameter),
+										""),
+									"suggests that the distribution of these variables ",ifelse(inp$results$p.value<0.05, "differs", "does not substantially differ"), " between ",
+									n[1], " and ", n[2], ".",
+									separator=""),
+								fixed=T)
+							
+								)							
+							)
+						),
+					column(2)			
+					)
+				)
+			}
+			
+		else if (inp$type == "applesToOranges") {
+			tagList(
+				fluidRow(
+					column(3),
+					column(6,
+						wellPanel(align="center",
+							h4("ERROR"),
+							p("You are probably comparing columns which contain different data. It is not possible to compare the distribution in the columns as they do not contain the same variables."),
+							p("Change the analysis type, or use the button in the top left corner to select different data."),
+							img(src="aToO.jpg", width="100%")						
+							)
+						),
+					column(3)
+					)
+				)
+			}
+			
+		else if (inp$type %in% c("ttest2", "wilcox2")) {
+
+			n <- gsub("_", " ", colnames(testSet$vals))
+			tagList(
+				fluidRow(
+					column(2),						
+					column(4,
+						fluidRow(
+							#Summarize the test
+							wellPanel(align="center",
+								h4("Test"),
+								p(inp$results$method),
+								br(),
+								p(sprintf("p-value: %g", max(round(inp$results$p.value, 4), 0.0001))),
+								if (inp$results$p.value<0.05) {p(style="color: green; font-weight:400", "significant")
+									} else {p(style="color: green; font-weight:400", "not significant")}
+								)
+							),
+						fluidRow(
+							wellPanel(align="center",							
+								h4("Mean comparison"),
+								uiOutput("freqComparison")							
+								)
+							)		
+						),
+					column(4,
+						#Summarize the data
+						wellPanel(align="center",
+							h4("Effect size"),
+							plotOutput("effect", height="200px")
+							)
+						),						
+					column(2)
+					),
+					
+				fluidRow(
+					column(2),
+					column(8,
+						wellPanel(align="center",
+							fluidRow(
+								column(3, tableOutput("testTable")),
+								column(1),
+								column(8, plotOutput("testPlot"))								
+								)
+							)
+						),
+					column(2)
+					),
+					
+				fluidRow(
+					column(2),
+					column(8,
+						wellPanel(
+							h4("Summary"),
+							br(),
+							p(gsub(" .", ".",
+								paste("The distribution of the values associated with the groups ", n[1], " and ", n[2], " was evaluated with ", 
+									inp$results$method,". The fact that the p-value yielded by the test was ", ifelse(inp$results$p.value<0.05, "below", "above"), 
+									" the significance level of 0.05 ", 
+									ifelse(inp$type=="ttest2", 
+										sprintf("(p= %g, t= %g, df=%i) ",  max(round(inp$results$p.value, 4), 0.0001), round(inp$results$statistic, 3), inp$results$parameter),
+										sprintf("(p= %g, W= %g) ",  max(round(inp$results$p.value, 4), 0.0001), round(inp$results$statistic, 3))
+										),
+									"suggests that these groups ",ifelse(inp$results$p.value<0.05, "belong", "do not belong"), " to the same population, that means that there is ",
+									ifelse(inp$results$p.value<0.05, "a", "no"), " reason to distinguish between ", n[1], " and ", n[2], "with respect to their value. ",
+									"The effect size as measured by ", names(inp$eff), " was ", inp$eff, " corresponding to a ", getEffLab(inp$eff), " effect; in other words the difference between ", n[1], " and ", n[2], "is", getEffLab(inp$eff), ".",
+									separator=""),
+								fixed=T)
+							
+								)							
+							)
+						),
+					column(2)			
+					)
+				)			
+			}
+			
+		})
+	
+	
+		# })
+
+
+		
+	output$freqComparison <- renderUI({
+		req(testRes(), testSet$vals)
+		inp <- testRes()
+		n <- colnames(testSet$vals)
+		# a <- colnames(testSet$vals)
+		
+		
+		if (inp$type %in% c("fisher2", "chisq2")) {
+			o <- paste("<p>Compared to", n[1], "the following changes occur in", n[2], "</p><br />")
+			o <- paste(o, '<ul style="list-style-type: none;">')
+
+			for (li in inp$larger){
+				o <- paste(o, '<li><i class="fas fa-plus"></i>', li, "</li>")}
+				
+			for (li in inp$smaller){	
+				o <- paste(o, '<li><i class="fas fa-minus"></i>', li, "</li>")}
+				o <- paste(o, "</ul>")
+	
+
+		}
+			
+		# else if (inp$type %in% c("ttest2", "wilcox2")) {
+
+			# o <- '<ul style="list-style-type: none;">'
+
+			# o <- paste(o, '<li><i class="fas fa-plus"></i>', sprintf("%s: %g", names(inp$larger), round(inp$larger, 4)), "</li>")			
+			# o <- paste(o, '<li><i class="fas fa-minus"></i>', sprintf("%s: %g", names(inp$smaller), round(inp$smaller,4)), "</li>")
+			# o <- paste(o, "</ul>")
+			# o <- paste(o,  '<div id="effect" class="shiny-plot-output" style="width: 100% ; height: 200px"></div>')
+
+			# }
+			
+		else if (inp$type %in% c("ttest2", "wilcox2")) {
+
+			o <- '<p>'
+
+			o <- paste(o, '<i class="fas fa-plus"></i>', sprintf("%s: %g", names(inp$larger), round(inp$larger, 4)), "<br />")			
+			o <- paste(o, '<i class="fas fa-minus"></i>', sprintf("%s: %g", names(inp$smaller), round(inp$smaller,4)), "<br />")
+			
+			}			
+			HTML(o)
+		
+		})
+		
+		
+	output$testTable <- renderTable(rownames=T, {
+		req(testRes())
+		inp <- testRes()
+		
+		if (inp$type %in% c("fisher2", "chisq2")) {
+			inp$results$observed
+			}
+			
+		if (inp$type %in% c("ttest2", "wilcox2")) {
+			inp$sumTab
+			}
+			
+		})
+		
+	output$testPlot <- renderPlot({
+		req(testRes())
+		inp <- testRes()
+		
+		if (inp$type %in% c("fisher2", "chisq2", "ttest2", "wilcox2")) {
+			inp$plot
+			}		
+		
+		})
+		
+	output$effect <- renderPlot({
+		req(testRes())
+		inp <- testRes()
+		
+		if (inp$type %in% c("ttest2", "wilcox2")) {
+			effPlot(inp$eff, names(inp$eff))
+			}		
+			
+		})
+		
+	
 })

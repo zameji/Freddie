@@ -218,21 +218,11 @@ fluidPage(
 			"Test",
 			tabPanel("Columns ", class="padded-page",
 				actionButton("colCChange", "Select different columns"),
-				uiOutput("testSettings"),
-				uiOutput("testOutput")
+				uiOutput("testOutput"),
+				uiOutput("testSettings")
 				),
 
 			tabPanel("Groups ", class="padded-page",
-				fluidRow(
-					column(2),
-					column(4,
-						wellPanel(actionLink("grSelAuto","Select groups defined in the data"))
-						),
-					column(4,
-						wellPanel(actionLink("grSelMan","Select groups manually"))
-						),
-					column(2)
-					),
 				actionButton("selGrs", "Select groups", class="btn btn-primary"),
 				bsModal("grSel", selectableTableOutput("fulltab", selection_mode = "cell"), size="large", trigger="selGrs"),				
 				uiOutput("testResCG")
@@ -240,8 +230,7 @@ fluidPage(
 			"_______________",
 			"Model",
 			tabPanel("Columns", class="padded-page",
-				uiOutput("testResCP")
-				# actionLink("colPChange", "Select different columns")
+				actionButton("colPChange", "Select different columns")
 				),				
 				
 			tabPanel("Groups",
