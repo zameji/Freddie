@@ -37,9 +37,12 @@ fluidPage(
 		  img(src="busy_icon1.gif")
 		),
 	
-	navbarPage("FREDDIE", id="mainnavbar", position="fixed-top",
-		
+	navbarPage("FREDDIE", id="mainnavbar", position="fixed-top",		
 		tabPanel("Upload", class="landing-page",
+
+			fluidRow(wellPanel(align="center", p("This is the alpha version of the new Freddie interface. It may be unstable and/or lack functions which you know from the old interface."),
+			a("To use the old version click here", href="https://freddie-shiny.ub.uni-freiburg.de/old"))),
+
 			fluidRow(
 				column(2),
 				column(8, align="center",
