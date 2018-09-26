@@ -48,17 +48,17 @@ fluidPage(
 				column(2),
 				column(8, align="center",
 					h1(id="main_title","FREDDIE Shiny", style='color: #000000;'),
-					h4(id="main_subtitle","Statistics without fear", style='color: #000000; margin-bottom: 50px')
+					h4(id="main_subtitle","Statistics interface", style='color: #000000; margin-bottom: 50px')
 				),
 			column(2)
 			),
 			fluidRow(
 				column(4),
+				column(2, align="left",
+					actionButton("startDemo", "Start demo version", style='text-align:center', class="btn-info btn-lg")
+				  ),				
 				column(2, align="right",
 					actionButton("upFile", "Upload your data", style='', class="btn-primary btn-lg")
-				  ),
-				column(2, align="left",
-					actionButton("startDemo","Start demoversion", style='text-align:center', class="btn-info btn-lg")
 				  ),
 				column(4)
 				),
@@ -207,8 +207,8 @@ fluidPage(
 					column(4,				
 						wellPanel(align="center", 
 							h3("Model"),
-							p("Use your data to predict the values of unseen cases."),
-							actionLink("predSel", "Predict")
+							p("Use your data to predict the values of unseen cases or check the strength of relationship between numeric variables."),
+							actionLink("modSet", "Predict")
 							)
 						),
 					column(4)
@@ -218,24 +218,25 @@ fluidPage(
 			"Test",
 			tabPanel("Columns ", class="padded-page",
 				actionButton("colCChange", "Select different columns"),
-				uiOutput("testOutput"),
-				uiOutput("testSettings")
+				uiOutput("testOutputColComp"),
+				uiOutput("testSettingsColComp")
 				),
 
 			tabPanel("Groups ", class="padded-page",
-				actionButton("selGrs", "Select groups", class="btn btn-primary"),
-				bsModal("grSel", selectableTableOutput("fulltab", selection_mode = "cell"), size="large", trigger="selGrs"),				
-				uiOutput("testResCG")
+				actionButton("grCChange", "Select groups", class="btn btn-primary"),
+				uiOutput("testOutputGrComp"),
+				uiOutput("testSettingsGrComp")
 				),
 			"_______________",
-			"Model",
-			tabPanel("Columns", class="padded-page",
-				actionButton("colPChange", "Select different columns")
-				),				
+			"Modelling",
+			# tabPanel("Columns", class="padded-page",
+				# actionButton("colPChange", "Select different columns")
+				# ),				
 				
-			tabPanel("Groups",
-				actionButton("selGrs", "Select groups", class="btn btn-primary"),
-				uiOutput("testResGP")
+			tabPanel("Model data", class="padded-page",
+				actionButton("modChange", "Select", class="btn btn-primary"),
+				uiOutput("testOutputMod"),
+				uiOutput("testSettingsMod")
 				)
 			),
 			
