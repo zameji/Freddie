@@ -1,7 +1,3 @@
-if (!require(shiny)) {install.packages("shiny")}
-if (!require(shinyjqui)) {install.packages("shinyjqui")}
-if (!require(shinyBS)) {install.packages("shinyBS")}
-
 library(shiny)
 library(shinyLP)
 library(shinyjqui)
