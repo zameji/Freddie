@@ -1,125 +1,274 @@
+if (!require(shiny)) {install.packages("shiny")}
+if (!require(shinyjqui)) {install.packages("shinyjqui")}
+if (!require(shinyBS)) {install.packages("shinyBS")}
+
 library(shiny)
-shinyUI(fluidPage(
-  #theme=shinythemes("spacelab"),
-  tags$head(tags$link(rel = "shortcut icon", href = "favicon.ico"),
-  tags$link(rel="stylesheet", type="text/css",href="style.css"),
-  tags$script(type="text/javascript", src = "busy.js")
-  ),
-  div(class="header", style="color: #004a99, font-weight: bold; align-content: center;", 
-	titlePanel("",windowTitle="FREDDIE Shiny")
-  ),
-div(class = "busy",  
-      p("Calculation in progress.."), 
-      img(src="busy_icon1.gif")
-	),
-  sidebarLayout(
-  
-    sidebarPanel(width = 3,
-      h3("Data:"),
-      fileInput(inputId='file1', label='Choose CSV File with your data',
-                accept=c('text/csv', 
-                         'text/comma-separated-values,text/plain', 
-                         '.csv')),
-      tags$hr(),
-	  checkboxInput(inputId='header', label='Header', TRUE),
-	  fluidRow(
-	    column(6, 
-          radioButtons(inputId='sep', label='Separator',
-                   c(Comma=',',
-                     Semicolon=';',
-                     Tab='\t'),
-                   '\t')
+library(shinyLP)
+library(shinyjqui)
+library(shinyBS)
+
+shinyUI(
+fluidPage(
+	tags$head(tags$link(rel = "shortcut icon", href = "favicon.ico"),
+		tags$title("FREDDIE Shiny"),
+		tags$script("
+				window.onload = function() {
+					$('#mainnavbar a:contains(\"Check\")').parent().addClass('disabled');
+					$('#mainnavbar a:contains(\"Summarize\")').parent().addClass('disabled');
+					$('#mainnavbar a:contains(\"Explore\")').parent().addClass('disabled');
+					$('#mainnavbar a:contains(\"Analyze\")').parent().addClass('disabled');
+				};
+
+				Shiny.addCustomMessageHandler('activeNavs', function(nav_label) {
+					$('#mainnavbar a:contains(\"' + nav_label + '\")').parent().removeClass('disabled');
+				});"  
 		),
-		column(6,
-          radioButtons(inputId='quote', label='Quote sign',
-                   c(None='',
-                     'Double Quote'='"',
-                     'Single Quote'="'"),
-                   '"')
-		)
-	  ),			   
-      conditionalPanel(condition = "Output.sum",
-                       uiOutput("varselector")
-					   ),
-	  h3("General plot settings:"),
-	  fluidRow(column(6, radioButtons(inputId='color', label='Color', c("Greyscale"="grey", "Colorblind-friendly"="cb", "Color"="color", "None"="no"), "grey")
+
+		tags$link(rel="stylesheet", type="text/css",href="style.css"),
+		tags$script(type="text/javascript", src = "busy.js"),
+		tags$link(rel="stylesheet", href="https://use.fontawesome.com/releases/v5.2.0/css/solid.css", integrity="sha384-wnAC7ln+XN0UKdcPvJvtqIH3jOjs9pnKnq9qX68ImXvOGz2JuFoEiCjT8jyZQX2z", crossorigin="anonymous"),
+		tags$link(rel="stylesheet", href="https://use.fontawesome.com/releases/v5.2.0/css/regular.css", integrity="sha384-zkhEzh7td0PG30vxQk1D9liRKeizzot4eqkJ8gB3/I+mZ1rjgQk+BSt2F6rT2c+I", crossorigin="anonymous"),
+		tags$link(rel="stylesheet", href="https://use.fontawesome.com/releases/v5.2.0/css/fontawesome.css", integrity="sha384-HbmWTHay9psM8qyzEKPc8odH4DsOuzdejtnr+OFtDmOcIVnhgReQ4GZBH7uwcjf6", crossorigin="anonymous")
+		
+		
+		# WIP: Animate the display of Col/Rownumber (NOT A PRIORITY)
+		#tags$script(type="text/javascript", src = "animate_value.js")
+
 		),
-	  column(6,radioButtons(inputId='serif', label='Font type',
-		   c("Serif"="serif",
-			 "Sans serif"="sans"),
-		   "sans")
-		)
-		   ),
-	  sliderInput("fontSize", "Font size", min=6, max=48, value=12)
-					   
-    ),
-    mainPanel(
-			fluidRow(uiOutput("help")),
+	tags$body(background="background0.jpg"),
+	tags$body(style="font-family: 'Halant', serif; padding-left: 0px; padding-right: 0px; padding-top: 70px;"),
+	
+	div(class = "busy",  
+		  p("Calculation in progress.."), 
+		  img(src="busy_icon1.gif")
+		),
+	
+	navbarPage("FREDDIE", id="mainnavbar", position="fixed-top",
+		
+		tabPanel("Upload", class="landing-page",
 			fluidRow(
-			tabsetPanel(
-				tabPanel("Data summary", 
-					conditionalPanel(condition="Output.PlotType", verbatimTextOutput("sum")),
-					uiOutput("overrider")
+				column(2),
+				column(8, align="center",
+					h1(id="main_title","FREDDIE Shiny", style='color: #000000;'),
+					h4(id="main_subtitle","Statistics interface", style='color: #000000; margin-bottom: 50px')
 				),
-				tabPanel("Variable summary", 
-					fluidRow(
-						column(6,
-							plotOutput("SumPlotX")
-							),
-						column(6,	
-							plotOutput("SumPlotY")
+			column(2)
+			),
+			fluidRow(
+				column(4),
+				column(2, align="left",
+					actionButton("startDemo", "Start demo version", style='text-align:center', class="btn-info btn-lg")
+				  ),				
+				column(2, align="right",
+					actionButton("upFile", "Upload your data", style='', class="btn-primary btn-lg")
+				  ),
+				column(4)
+				),
+				
+			fluidRow(
+				HTML("<br />")
+				),
+				
+			wellPanel(class="lp-main-well",
+				fluidRow(
+					column(3),
+					column(2,
+						wellPanel(class="lp-well", align="center",
+							img(src='plot.jpg', width="100%"),
+							h4("Create plots"),
+							p(class="lp-desc", "Only a few clicks will bring you to high quality graphics")
+						
 							)
-					),
-					fluidRow(
-						column(6,align="center",
-							conditionalPanel(condition="Output.PlotType",
-								uiOutput("Xsettings")
-								)
-							),
-						column(6,align="center",
-							conditionalPanel(condition="Output.PlotType",
-								uiOutput("Ysettings")
-								)
-							)
-						)
-				), 
-				tabPanel("Plot", 
-					plotOutput("Plot", 
-						brush = brushOpts(
-							id = "plot1_brush"
 						),
-						click = "plot1_click"
-						),
-					hr(),
-					uiOutput("OutlierFilter"),
-					h3("Figure settings:"),
-					fluidRow(
-						column(6,
-							conditionalPanel(condition = "output.PlotType",
-								textInput(inputId="titleInput", label='Title', value = " ")
-								),
-							conditionalPanel(condition = "output.PlotType",
-								downloadButton("downloadData", 'Download figure')
-								)
-							),
-						column(6,
-							uiOutput("PlotSettings")
+					column(2,
+						wellPanel(class="lp-well", align="center",
+							img(src='analyze.jpg', width="100%"),
+							h4("Analyze data"),
+							p(class="lp-desc", "You can both test your hypotheses against the data and create models")
 							)
+						),
+					column(2,
+						wellPanel(class="lp-well", align="center",
+							img(src='code.jpg', width="100%"),
+							h4("Code-free statistics"),
+							p(class="lp-desc", "You do not need to learn how to code, everything is just a click away")
+							)
+						),
+					column(3)
+					)
+				)
+			),
+			
+		tabPanel("Check", class="padded-page",
+		
+			# fluidRow(		
+				# column(2),
+				# column(8,		
+					# wellPanel(style="background-color: #ffffff", 
+						# h2("Summary of your data", style='text-align:center')
+						# )
+					# ),
+				# column(2)
+				# ),
+			fluidRow(
+				column(3),
+			
+				column(2,
+					wellPanel(
+						h3("Columns", style='text-align:center'),
+						h3(textOutput("columnNumber"), style='text-align:center; color: #2222ff;')
 						)
 					),
-				tabPanel("Statistical testing", 
-					p(htmlOutput("TestDescription")),
-					uiOutput("TestSettings"),
-					h3("Test results:"),
-					p(textOutput("Pvalue")),
-					p(textOutput("Signalert")),
-					verbatimTextOutput("Testresults"))
+					
+				column(2),	
+					
+				column(2,
+					wellPanel(
+						h3("Rows", style='text-align:center'),
+						h3(textOutput("rowNumber"), style='text-align:center; color: #2222ff;')					
+						)
+					),
+				column(3)
+				),
+			fluidRow(
+				column(2),
+				column(8,
+					wellPanel(
+						h3("Structure of your data", style="text-align:center;"),
+						p("Drag the labels to correct rows", style="text-align:center;"),
+						div(style="text-align:center;", uiOutput("vartype"))
+						)
+					),
+				column(2)	
+				),
+			
+			fluidRow(
+				column(4),
+				column(2, align="center",
+					actionButton("bigFriendlyButton", "Correct", icon("stats", lib = "glyphicon"), width="85%", style="background-color: green; color: white; font-size: 30px")
+					),
+				column(2, align="center",	
+						actionButton("bigUnfriendlyButton", "Wrong", width="80%", style="background-color: red; color: white; font-size: 28px")					
+					),
+				column(4)
+				)			
+			),
+	
+		tabPanel("Summarize", class="padded-page",
+			uiOutput("naCount"),
+			htmlOutput("summaryOutput")
+			),
+	
+		tabPanel("Explore", class="padded-page",
+			fluidRow(
+				column(2),
+				column(8,
+					wellPanel(
+						h3("Select the variables to plot", style="text-align:center;"),
+						div(style="text-align:center;", uiOutput("plotselect"))
+						)
+					),
+				column(2)	
+				),
+			fluidRow(
+				div(style="text-align:center; padding-bottom:19px",
+					actionButton("doPlot", "Plot", icon("charts", lib = "glyphicon"), width="10%", style="background-color: green; color: white; font-size: 30px")
+					)
+				),
+			
+			fluidRow(column(1),
+				column(10, align="center",
+					plotOutput("outplot")
+					),
+				column(1)),
+				
+			fluidRow(column(1),
+				column(10, align="center",
+					div(class="text-center;", uiOutput("plotChoices"))
+					),
+				column(1))				
+			
+			),
+			
+		navbarMenu("Analyze",
+			tabPanel("Start", class="padded-page",
+				fluidRow(
+					column(4),
+					column(4,
+						wellPanel(align="center", 
+							h3("Test"),
+							p("Check your hypothesis against your data."),
+							actionLink("compSel", "Compare")
+							)
+						),
+					column(4)
+					),
+					
+				fluidRow(	
+					column(4),
+					column(4,				
+						wellPanel(align="center", 
+							h3("Model"),
+							p("Use your data to predict the values of unseen cases or check the strength of relationship between numeric variables."),
+							actionLink("modSet", "Predict")
+							)
+						),
+					column(4)
+					)
+				),
+			"_______________",
+			"Test",
+			tabPanel("Columns ", class="padded-page",
+				actionButton("colCChange", "Select different columns"),
+				uiOutput("testOutputColComp"),
+				uiOutput("testSettingsColComp")
+				),
+
+			tabPanel("Groups ", class="padded-page",
+				actionButton("grCChange", "Select groups", class="btn btn-primary"),
+				uiOutput("testOutputGrComp"),
+				uiOutput("testSettingsGrComp")
+				),
+			"_______________",
+			"Modelling",
+			# tabPanel("Columns", class="padded-page",
+				# actionButton("colPChange", "Select different columns")
+				# ),				
+				
+			tabPanel("Model data", class="padded-page",
+				actionButton("modChange", "Select", class="btn btn-primary"),
+				uiOutput("testOutputMod"),
+				uiOutput("testSettingsMod")
+				)
+			),
+			
+		tabPanel("Settings", class="padded-page",
+			h3("Settings", style="text-align: center"),
+			uiOutput("settings"),
+			fluidRow(
+				column(12, align="center",
+				actionButton("saveSettings", "Save", class="btn-success")
+					)
+				)
+			),
+		
+		navbarMenu("More", 
+			tabPanel("Help", class="padded-page",
+				jumbotron(header="Welcome to FREDDIE Shiny", content="An easy way to statistics")
+				),
+			tabPanel("About", class="padded-page",
+				jumbotron(header="Welcome to FREDDIE Shiny", content="An easy way to statistics")
 				)
 			)
-		)	  
-	),
-	hr(),
-	fluidRow(column(12, align="center", HTML('This interface is a part of the <a href="https://www.anglistik.uni-freiburg.de/seminar/abteilungen/sprachwissenschaft/ls_kortmann/FREDDIE">FREDDIE</a> project at University Freiburg.'))),
-	fluidRow(column(12, align="center", HTML('<a href="mailto:jiri.zamecnik@anglistik.uni-freiburg.de">Contact us</a>')))
+		),
+		
+	
+		p("\n"),
+		wellPanel(style="height: 70px; margin-bottom: 0px",
+			fluidRow(column(12, align="center", HTML('This interface is a part of the <a href="https://www.anglistik.uni-freiburg.de/seminar/abteilungen/sprachwissenschaft/ls_kortmann/FREDDIE">FREDDIE</a> project at University Freiburg.'))),
+			fluidRow(column(12, align="center", HTML('<a href="mailto:jiri.zamecnik@anglistik.uni-freiburg.de">Contact us</a>')))
+			)
+		)
+
 )
-)
+		
