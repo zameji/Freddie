@@ -23,7 +23,6 @@ fluidPage(
 					$('#mainnavbar a:contains(\"' + nav_label + '\")').parent().removeClass('disabled');
 				});"  
 		),
-
 		tags$link(rel="stylesheet", type="text/css",href="style.css"),
 		tags$script(type="text/javascript", src = "busy.js"),
 		tags$link(rel="stylesheet", href="https://use.fontawesome.com/releases/v5.2.0/css/solid.css", integrity="sha384-wnAC7ln+XN0UKdcPvJvtqIH3jOjs9pnKnq9qX68ImXvOGz2JuFoEiCjT8jyZQX2z", crossorigin="anonymous"),
@@ -33,7 +32,6 @@ fluidPage(
 		
 		# WIP: Animate the display of Col/Rownumber (NOT A PRIORITY)
 		#tags$script(type="text/javascript", src = "animate_value.js")
-
 		),
 	tags$body(background="background0.jpg"),
 	tags$body(style="font-family: 'Halant', serif; padding-left: 0px; padding-right: 0px; padding-top: 70px;"),

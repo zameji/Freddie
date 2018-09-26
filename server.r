@@ -8,12 +8,10 @@ library(tidyverse)
 library(lmtest)
 library(lm.beta)
 library(ggplot2)
-
 library(RColorBrewer)	
 library(car)
 library(data.table)
 options(shiny.reactlog = TRUE)
-
 options(shiny.usecairo=FALSE)
 colMax <- function(data) sapply(data, max, na.rm = TRUE)
 bx.stat <- function(inp){return(boxplot.stats(inp)$stats[c(1,5)])}
@@ -403,7 +401,6 @@ shinyServer(function(input, output, session) {
 				else {return(NULL)}}
 		})
 	
-
 	cookData <- function() {
 		req(rawData())
 		cookedData$cooked <- rawData()
@@ -413,7 +410,6 @@ shinyServer(function(input, output, session) {
 				}
 			if (label %in% cookedData$nums) {
 				if (is.factor(cookedData$cooked[[label]])){cookedData$cooked[[label]] <- as.numeric(cookedData$cooked[[label]])}
-
 				}
 			}
 			
@@ -734,7 +730,6 @@ shinyServer(function(input, output, session) {
 			}
 
 		})
-
 		
 	observeEvent(input$ok_mod, {
 		anovaGroups$finished <- NULL
