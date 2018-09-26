@@ -264,7 +264,7 @@ randdata <- function(){
 		after_class=seed0+rnorm(100,20,25)
 		)
 		
-	rd <- as.data.frame(lapply(rd, getna))
+	# rd <- as.data.frame(lapply(rd, getna))
 	
 	return(rd)
 
