@@ -169,6 +169,74 @@ function (eff, type, boundary=2, edges = 100, labels=NULL, outer.radius = 1,
 	title(main = main, ...)
 	invisible(NULL)
 	}
+
+corPlot <-
+function (eff, type="spearman", boundary=1, edges = 100, labels=NULL, outer.radius = 1, 
+          inner.radius=0.75,
+          init.angle = 0, density = NULL, 
+          angle = 45, col = NULL, border = FALSE, lty = NULL, 
+          main = NULL, inside=NULL, ...){
+
+	if (type == "spearman") {type <- "Spearman's rho"} else {type <- "Pearson's r"}
+
+	if (!all(is.numeric(c(eff, boundary)))){stop("'x' values must be factors.")}
+	if (is.null(labels)){labels <- c("", "")}
+	effb <- eff
+	#eff <- min(abs(eff), 2)
+
+	x <- c(-1, max(eff-0.02,-1), min(eff+0.02,1), 1)
+	x <- (x/-2)+0.5
+	rat <- abs(0.4*eff)
+	efcol <- hsv(max(rat, 0),1,1)
+	col <- c("grey90", efcol, "grey90")
+	
+	dx <- diff(x)
+	print(dx)
+	nx <- length(dx)
+	par(mar=c(0,2,1,2))
+	plot.new()
+	pin <- par("pin")
+	xlim <- c(-1, 1)
+	ylim <- c(0,1)
+	if (pin[1L] > pin[2L])
+		{xlim <- (pin[1L]/pin[2L]) * xlim
+	} else {ylim <- (pin[2L]/pin[1L]) * ylim}
+	plot.window(xlim, ylim, "", asp = 1)	
+
+	t2xy <- function(t, radius) {
+		t2p <- pi * t + init.angle * pi/180
+		list(x = radius * cos(t2p), 
+			 y = radius * sin(t2p))
+	}
+	for (i in 1L:nx) {
+		n <- max(50, floor(edges * dx[i]))
+		P <- t2xy(seq.int(x[i], x[i + 1], length.out = n),
+				  outer.radius)
+		polygon(c(P$x, 0), c(P$y, 0), density = density[i], 
+				angle = angle[i], border = border[i], 
+				col = col[i], lty = lty[i])
+		Pout <- t2xy(mean(x[i + 0:1]), outer.radius)
+		lab <- as.character(labels[i])
+		if (!is.na(lab) && nzchar(lab)) {
+			text(1.1 * Pout$x, 1.1 * Pout$y, labels[i], family="serif",
+				 xpd = TRUE, adj = ifelse(Pout$x < 0, 1, 0))
+		}
+	}
+
+		## Add white disc          
+		Pin <- t2xy(seq.int(0, 1, length.out = n*nx),
+				  inner.radius)
+		polygon(Pin$x, Pin$y, density = density[i], 
+				angle = angle[i], border = border[i], 
+				col = "white", lty = lty[i])
+	
+	text(0,0.2,paste(type, ": ", abs(round(effb, 2)), sep=""), family="serif", cex=1.25)
+ 	text(-1,-0.2, "Strong negative", family="serif", cex=1.25)
+	text(1,-0.2,"Strong positive", family="serif", cex=1.25)
+	title(main = main, ...)
+	invisible(NULL)
+	}
+
 	
 bend <-
 function (nas, tot, edges = 100, labels=NULL, outer.radius = 1, 
@@ -241,6 +309,30 @@ getEffLab <- function(eff) {
 		if (eff < 1.2) {return("large")}
 		else if (eff < 2) {return("very large")}
 		else {return("huge")}	
+		}
+	}
+
+getCorLab <- function(eff, rel = T) {
+	eff <- abs(eff)
+	if (rel == T){if (eff <0.5){
+			if (eff < 0.1) {return("very weak")}
+			else if (eff < 0.3) {return("weak")}
+			else {return("medium")}
+		}
+		else {
+			return("strong")
+			}
+		}
+		
+	else {
+		if (eff <0.5){
+			if (eff < 0.1) {return("at all")}
+			else if (eff < 0.3) {return("to a limited degree")}
+			else {return("reasonably well")}
+			}
+		else {
+			return("well")
+			}
 		}
 	}
 	
@@ -696,6 +788,7 @@ shinyServer(function(input, output, session) {
 			testSet$vals <- cookedData$cooked[,input$sels_order]
 			testSet$vals <- testSet$vals[!is.null(testSet$vals)]
 			testSet$manConts <- NULL
+			testSet$twoCol <- NULL
 			if (length(input$sels_order) == 2 & all(colnames(testSet$vals) %in% cookedData$nums)) {
 				showModal(modalDialog(
 					title="Test type",
@@ -710,6 +803,8 @@ shinyServer(function(input, output, session) {
 					easyClose=FALSE
 					))
 				}
+				
+			else {removeModal()}
 			}
 			
 		else if (length(input$sels_order)<2) {testSet$vals <- NULL
@@ -1089,7 +1184,7 @@ shinyServer(function(input, output, session) {
 			rownames(contTable) <- levels(dat[,2])
 			colnames(contTable) <- getColNames(contTable)
 			contrasts(dat[,2]) <- as.matrix(contTable)				
-			print(contTable)
+			# print(contTable)
 			return(contTable)
 			}
 
@@ -1607,6 +1702,7 @@ shinyServer(function(input, output, session) {
 		
 	testSettings <- reactive({
 		req(testSet$settings, testSet$vals)
+		curCase <- testSet$settings
 		if (testSet$settings == "colComp"){
 			if (testSet$twoCol == "compMeans") {
 				if (ncol(testSet$vals)==2 & all(colnames(testSet$vals) %in% cookedData$nums)){
@@ -1628,7 +1724,7 @@ shinyServer(function(input, output, session) {
 										selected="two.sided"
 										),
 									p(style="font-weight:700; font-size: 14px ", paste("in comparison to", colnames(testSet$vals)[2])),
-									actionButton("doTest", "Save", style="background-color: green; color: white")
+									actionButton("doTestCol", "Save", style="background-color: green; color: white")
 									)
 								),
 							column(3)
@@ -1660,6 +1756,28 @@ shinyServer(function(input, output, session) {
 					}
 				}
 				
+				else if (testSet$twoCol=="correlate"){
+					tagList(
+						fluidRow(
+							column(3),
+							column(6,
+								wellPanel(align="center",
+									h3("Test setup"),
+									hr(),							
+									selectInput("method", paste("The relationship between", colnames(testSet$vals)[1], "and", colnames(testSet$vals)[2], "is:"), c(
+										"Linear"="pearson",
+										"Monotonic"="spearman"),
+										selected="spearman"
+										),
+									p("Linear relationships can be visualised as a simple line, connecting the dots on a scatterplot. Monotonic relationships can be represented by a curve or a line."),
+									actionButton("doCorTest", "Proceed", style="background-color: green; color: white")
+									)
+								),
+							column(3)
+							)
+						)				
+					}
+				
 				else {invisible()}
 			}
 			
@@ -1683,7 +1801,7 @@ shinyServer(function(input, output, session) {
 									selected="two.sided"
 									),
 								p(style="font-weight:700; font-size: 14px ", paste("in comparison to", colnames(testSet$vals)[2])),
-								actionButton("doTest", "Save", style="background-color: green; color: white")
+								actionButton("doTestGr", "Save", style="background-color: green; color: white")
 								)
 							),
 						column(3)
@@ -1836,7 +1954,9 @@ shinyServer(function(input, output, session) {
 			c2 <- c2.x						
 			}
 		
-		req(input$doTest > 0)
+		if(testSet$settings=="colComp"){req(input$doTestCol > 0)}
+		
+		if(testSet$settings=="grComp"){req(input$doTestGr > 0)}
 		
 		pars <- isolate(list(tails=input$tails, paired=input$paired))
 		
@@ -2070,7 +2190,43 @@ shinyServer(function(input, output, session) {
 			return(list(results=t.obj, type="fisher", plot=p.obj, conts=conts))
 			}						
 		}
+	
+	doCor <- function(dat){
+	
+		c1 <- dat[,1]
+		c2 <- dat[,2]
+		grLabs <- colnames(dat)
 		
+		cond1 <- shapiro.test(c1)$p.value >= 0.05
+		cond2 <- shapiro.test(c2)$p.value >= 0.05	
+		
+		req(input$doCorTest > 0)
+		
+		if (settings$na.ignore == "ignore"){
+			fil <- !(is.na(c1) | is.na(c2))
+			c1 <- c1[fil]
+			c2 <- c2[fil]
+			}
+		
+		if (cond1 & cond2){
+			c.obj <- suppressWarnings(cor.test(c1, c2, method=input$method))
+			method <- input$method
+			}
+			
+		else {c.obj <- suppressWarnings(cor.test(c1, c2, method="spearman"))
+			method <- "spearman"
+			}
+		
+		forplot <- data.frame(x=c1, y=c2)
+		p.obj <- ggplot(forplot, aes(x, y))+
+			geom_point()+
+			theme_bw()+
+			xlab(grLabs[1])+
+			ylab(grLabs[2])			
+		
+		return(list(results=c.obj, type=method, plot=p.obj))
+		}
+	
 	testRes <- reactive({
 		req(testSet$settings, testSet$vals)
 		
@@ -2152,14 +2308,14 @@ shinyServer(function(input, output, session) {
 
 				lin <- cor(cord, method="pearson")[corpreds,coroutp]-cor(cord, method="spearman")[corpreds,coroutp]
 				names(lin) <- corpreds
-				print(lin)
+				# print(lin)
 				lin <- names(lin)[lin < -0.1]
 								
 				mod <- lm(reformulate(termlabels = preds, response = outp), dat)
 				if (length(preds)>1){mColl <- vif(mod)
 					if (class(mColl)=="matrix"){						
 						mColl <- as.data.frame(mColl)
-						print(mColl)
+						# print(mColl)
 						mColl <- mColl[3]**2
 						mColl <- rownames(mColl)[mColl[,1]>10]
 						}
@@ -2205,7 +2361,7 @@ shinyServer(function(input, output, session) {
 			a <- anovaGroups$finished		
 			
 			inp <- testRes()
-			print(inp)
+			# print(inp)
 			
 			if (inp$type %in% c("chisq2", "fisher2")) {
 					n <- gsub("_", " ", colnames(testSet$vals))
@@ -2272,7 +2428,7 @@ shinyServer(function(input, output, session) {
 						)
 					}			
 				
-				else if (inp$type %in% c("chisq", "fisher")) {
+			else if (inp$type %in% c("chisq", "fisher")) {
 					print("Drawinng....")
 					n <- gsub("_", " ", colnames(testSet$vals))
 					tagList(
@@ -2354,6 +2510,83 @@ shinyServer(function(input, output, session) {
 						)
 					)
 				}
+
+				
+			else if (inp$type %in% c("pearson", "spearman")) {
+					n <- gsub("_", " ", colnames(testSet$vals))
+					print(inp)
+					tagList(
+						fluidRow(
+							column(2),						
+							column(4,
+								fluidRow(
+									#Summarize the test
+									wellPanel(align="center",
+										h4("Test"),
+										p(inp$results$method),
+										br(),
+										p(sprintf("correlation coefficient: %g", max(round(inp$results$estimate, 4), 0.0001))),
+										if (inp$results$p.value>0) {p(style="font-weight:400", "positive")
+											} else {p(style="font-weight:400", "negative")}	,									
+										p(sprintf("p-value: %g", max(round(inp$results$p.value, 4), 0.0001))),
+										if (inp$results$p.value<0.05) {p(style="color: green; font-weight:400", "significant")
+											} else {p(style="color: red; font-weight:400", "not significant")}
+										)
+									)		
+								),
+							column(4,
+								#Summarize the data
+								wellPanel(align="center",
+									h4("Effect size"),
+									plotOutput("effectCol", height="200px")
+									)
+								),						
+							column(2)
+							),
+							
+						fluidRow(
+							column(2),
+							column(8,
+								wellPanel(align="center",
+									fluidRow(
+										plotOutput("testPlotColComp")
+										)
+									)
+								),
+							column(2)
+							),
+							
+						fluidRow(
+							column(2),
+							column(8,
+								wellPanel(
+									h4("Summary"),
+									br()
+									# ,
+									# p(gsub(" .", ".",
+										# paste("The relationship between the variables", n[1], "' and '", n[2], "' was evaluated with ", 
+											# inp$results$method,". The correlation coefficient between these two variables was", ifelse(inp$type$method=="pearson", "r=", "rho="), inp$results$estimate,
+											# "The fact that the p-value yielded by the test was ", ifelse(inp$results$p.value<0.05, "below", "above"), 
+											# " the significance level of 0.05 ", 
+											# ifelse(inp$type=="pearson", 
+												# sprintf("(p= %g, t= %g, df=%g) ",  max(round(inp$results$p.value, 4), 0.0001), round(inp$results$statistic, 3), inp$results$parameter),
+												# sprintf("(p= %g, S= %g) ",  max(round(inp$results$p.value, 4), 0.0001), round(inp$results$statistic, 3))
+												# ),
+											# "suggests that the correlation coefficient in the population ",ifelse(inp$results$p.value<0.05, "is", "may not be"), " different from zero. In other words, it is",
+											# ifelse(inp$results$p.value<0.05, "likely", "unlikely"), " that knowing the value of '", n[1], "' allows to predict '", n[2], "' and vice versa. ",
+											# "The size of the correlation coefficient suggests a", ifelse(inp$results$estimate<0, "negative", "positive"), "correlation, i.e. as one of the variables increases, the other",
+											# ifelse(inp$results$estimate<0, "decreases.", "increases as well."), "Additionally, the relationship is", getCorLab(inp$results$estimate), 
+											# " ; thus, by knowing the value of one of the variables, it is", ifelse(abs(inp$results$estimate>0.1),"", "not"), "possible to predict the value of the other", getCorLab(inp$results$estimate, rel=F),
+											# sep=""),
+										# fixed=T)
+									
+										# )							
+									)
+								),
+							column(2)			
+							)
+						)}			
+			
 				
 			else if (inp$type %in% c("ttest2", "wilcox2")) {
 					n <- gsub("_", " ", colnames(testSet$vals))
@@ -2383,7 +2616,7 @@ shinyServer(function(input, output, session) {
 								#Summarize the data
 								wellPanel(align="center",
 									h4("Effect size"),
-									plotOutput("effect", height="200px")
+									plotOutput("effectCol", height="200px")
 									)
 								),						
 							column(2)
@@ -2573,10 +2806,11 @@ shinyServer(function(input, output, session) {
 		if (testSet$settings=="grComp"){
 				
 			req(testRes()$type, testSet$vals)
-			a <- anovaGroups$finished		
+			# a <- anovaGroups$finished		
 			
 			inp <- testRes()
-			print(inp)
+			# print
+			# print(inp)
 			
 			if (inp$type %in% c("chisq2", "fisher2")) {
 
@@ -2775,7 +3009,7 @@ shinyServer(function(input, output, session) {
 								#Summarize the data
 								wellPanel(align="center",
 									h4("Effect size"),
-									plotOutput("effect", height="200px")
+									plotOutput("effectGr", height="200px")
 									)
 								),						
 							column(2)
@@ -2969,7 +3203,7 @@ shinyServer(function(input, output, session) {
 			req(testRes()$type)
 			
 			inp <- testRes()
-			print(inp)
+			# print(inp)
 			if (inp$type == "linreg"){
 					n <- gsub("_", " ", colnames(testSet$vals))
 					pval <- 1-pf(inp$sm$fstatistic[1], inp$sm$fstatistic[2], inp$sm$fstatistic[3])
@@ -3027,11 +3261,7 @@ shinyServer(function(input, output, session) {
 							column(2),
 							column(8,
 								wellPanel(align="center",
-									fluidRow(
-										column(3, tableOutput("testTable")),
-										column(1),
-										column(8, plotOutput("testPlotMod"))								
-										)
+									plotOutput("testPlotMod")								
 									)
 								),
 							column(2)
@@ -3198,7 +3428,7 @@ shinyServer(function(input, output, session) {
 		}
 
 		# WIP
-		if (inp$type %in% c("fisher", "chisq")) {
+		else if (inp$type %in% c("fisher", "chisq")) {
 			if (testSet$settings == "colComp"){
 				o <- paste("<p>Compared to", n[1], "the following changes occur in", n[2], "</p><br />")
 				# o <- paste(o, '<ul style="list-style-type: none;">')
@@ -3283,8 +3513,8 @@ shinyServer(function(input, output, session) {
 			larger <- larger[order(abs(larger[,2]), decreasing=T),]
 			smaller <- smtb[smtb$Estimate<=0,]
 			smaller <- smaller[order(abs(smaller[,2]), decreasing=T),]
-			print(larger)
-			print(smaller)
+			# print(larger)
+			# print(smaller)
 			o <- paste("<p>Following influences have been identified. (Ordered by relative importance, bold predictors are significant)</p><br />")
 			o <- paste(o, '<ul style="list-style-type: none;">')
 			
@@ -3294,6 +3524,7 @@ shinyServer(function(input, output, session) {
 					o <- paste(o, '<li><i class="fas fa-plus"></i>', ifelse(l[5]<0.05, sprintf("<b>%s: %g</b>", l[6], round(l[1], 4)), sprintf("%s: %g", l[6], round(l[1],4))), "</li>")}
 								
 				}
+			
 			if (nrow(smaller) > 0){
 				for (li in 1:nrow(smaller)){
 					l <- smaller[li,]
@@ -3315,10 +3546,9 @@ shinyServer(function(input, output, session) {
 			inp$results$observed
 			}
 			
-		if (inp$type %in% c("ttest2", "wilcox2")) {
+		else if (inp$type %in% c("ttest2", "wilcox2")) {
 			inp$sumTab
 			}
-			
 		})
 		
 	output$testPlotColComp <- renderPlot({
@@ -3326,7 +3556,7 @@ shinyServer(function(input, output, session) {
 		if (testSet$settings== "colComp"){
 			inp <- testRes()
 			
-			if (inp$type %in% c("fisher2", "chisq2", "fisher", "chisq", "ttest2", "wilcox2", "anova", "anovaOnRanks")) {
+			if (inp$type %in% c("fisher2", "chisq2", "fisher", "chisq", "ttest2", "wilcox2", "anova", "anovaOnRanks", "spearman", "pearson")) {
 				inp$plot
 				}		
 			}
@@ -3349,7 +3579,8 @@ shinyServer(function(input, output, session) {
 		req(testRes(), testSet$settings)
 		if (testSet$settings== "mod"){
 			inp <- testRes()
-			
+			print("MODELLING")
+			# print(inp$type)
 			if (inp$type %in% c("linreg")) {
 				inp$plot
 				}
@@ -3360,15 +3591,37 @@ shinyServer(function(input, output, session) {
 		})
 		
 		
-	output$effect <- renderPlot({
+	output$effectCol <- renderPlot({
 		req(testRes())
 		inp <- testRes()
+
+		print(inp$results$estimate)	
+		print(inp$method)
 		
-		if (inp$type %in% c("ttest2", "wilcox2")) {
-			effPlot(inp$eff, names(inp$eff))
-			}		
+		if (testSet$settings == "colComp"){
+			if (inp$type %in% c("ttest2", "wilcox2")) {
+				effPlot(inp$eff, names(inp$eff))
+				}
 			
+			else if (inp$type %in% c("spearman", "pearson")) {
+				print(inp$results$estimate)
+				print(inp$method)
+				corPlot(inp$results$estimate, type=inp$method)
+				}
+			}
+
 		})
-		
+	
+	output$effectGr <- renderPlot({
+		req(testRes())
+		inp <- testRes()
+		print("EFFPLOT")
+		# print(inp)
+		if(testSet$settings == "grComp"){
+			if (inp$type %in% c("ttest2", "wilcox2")) {
+				effPlot(inp$eff, names(inp$eff))
+				}
+			}					
+		})	
 	
 })

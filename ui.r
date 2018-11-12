@@ -40,8 +40,8 @@ fluidPage(
 	navbarPage("FREDDIE", id="mainnavbar", position="fixed-top",		
 		tabPanel("Upload", class="landing-page",
 
-			fluidRow(wellPanel(align="center", p("This is the alpha version of the new Freddie interface. It may be unstable and/or lack functions which you know from the old interface."),
-			a("To use the old version click here", href="https://freddie-shiny.ub.uni-freiburg.de/old"))),
+			fluidRow(wellPanel(align="center", p("This is the alpha version of the new Freddie interface. It may be unstable and/or lack functions which you know from the old interface.")
+				)),
 
 			fluidRow(
 				column(2),
@@ -230,10 +230,7 @@ fluidPage(
 				),
 			"_______________",
 			"Modelling",
-			# tabPanel("Columns", class="padded-page",
-				# actionButton("colPChange", "Select different columns")
-				# ),				
-				
+
 			tabPanel("Model data", class="padded-page",
 				actionButton("modChange", "Select", class="btn btn-primary"),
 				uiOutput("testOutputMod"),
@@ -268,6 +265,5 @@ fluidPage(
 			fluidRow(column(12, align="center", HTML('<a href="mailto:jiri.zamecnik@anglistik.uni-freiburg.de">Contact us</a>')))
 			)
 		)
-
 )
 		
