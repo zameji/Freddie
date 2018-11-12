@@ -65,8 +65,10 @@ fluidPage(
 			fluidRow(
 				HTML("<br />")
 				),
-				
-			wellPanel(class="lp-main-well",
+			
+
+			# wellPanel(class="lp-main-well",
+			wellPanel(
 				fluidRow(
 					column(3),
 					column(2,
@@ -206,7 +208,7 @@ fluidPage(
 					column(4,				
 						wellPanel(align="center", 
 							h3("Model"),
-							p("Use your data to predict the values of unseen cases or check the strength of relationship between numeric variables."),
+							p("Use your data to predict the values of unseen cases or check the strength of relationship between variables."),
 							actionLink("modSet", "Predict")
 							)
 						),

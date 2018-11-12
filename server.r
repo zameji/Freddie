@@ -696,7 +696,20 @@ shinyServer(function(input, output, session) {
 			testSet$vals <- cookedData$cooked[,input$sels_order]
 			testSet$vals <- testSet$vals[!is.null(testSet$vals)]
 			testSet$manConts <- NULL
-			removeModal()
+			if (length(input$sels_order) == 2 & all(colnames(testSet$vals) %in% cookedData$nums)) {
+				showModal(modalDialog(
+					title="Test type",
+					h4("Decide what to do with these columns"),
+					p("Compare distribution - e.g. for counts from a corpus, where each row is a different option"),
+					actionButton("compCount", "Proceed"),
+					p("Compare means - e.g. for measurements, where each row is one participant"),
+					actionButton("compMeans", "Proceed"),
+					p("Compare values - to determine the strength of relationship between two numeric variables"),
+					actionButton("correlate", "Proceed"),
+					fade=FALSE,
+					easyClose=FALSE
+					))
+				}
 			}
 			
 		else if (length(input$sels_order)<2) {testSet$vals <- NULL
@@ -730,7 +743,33 @@ shinyServer(function(input, output, session) {
 			}
 
 		})
-		
+	
+	observeEvent(input$compCount, {
+		testSet$twoCol <- "compCount"
+		showModal(modalDialog(
+			title="Set rownames",
+			p("Select the column which contains the names of the categories that the counts represent"),
+			selectInput("namesCol", label="Columns with labels",
+				choices=c(cookedData$cats),
+				),
+			actionButton("ok_namesCol", "OK"),
+			fade=FALSE,
+			easyClose=FALSE
+			))
+		})
+	observeEvent(input$ok_namesCol, {
+		testSet$namesCol <- input$namesCol
+		removeModal()
+		})
+	observeEvent(input$compMeans, {
+		testSet$twoCol <- "compMeans"
+		removeModal()
+		})
+	observeEvent(input$correlate, {
+		testSet$twoCol <- "correlate"
+		removeModal()
+		})
+	
 	observeEvent(input$ok_mod, {
 		anovaGroups$finished <- NULL
 		if (length(input$outp_order)==1 & length(input$pred_order)>0) {
@@ -1569,55 +1608,59 @@ shinyServer(function(input, output, session) {
 	testSettings <- reactive({
 		req(testSet$settings, testSet$vals)
 		if (testSet$settings == "colComp"){
-			if (ncol(testSet$vals)==2 & all(colnames(testSet$vals) %in% cookedData$nums)){
-				tagList(
-					fluidRow(
-						column(3),
-						column(6,
-							wellPanel(align="center",
-								h3("Test setup"),
-								hr(),
-								h4("Data"),
-								checkboxInput("paired", "Individual rows form pairs", FALSE),
-								hr(),
-								h4("Hypothesis"),
-								selectInput("tails", paste("The mean in", colnames(testSet$vals)[1], "is:"), c(
-									"Lower"="less",
-									"Different"="two.sided",
-									"Higher"="greater"),
-									selected="two.sided"
-									),
-								p(style="font-weight:700; font-size: 14px ", paste("in comparison to", colnames(testSet$vals)[2])),
-								actionButton("doTest", "Save", style="background-color: green; color: white")
-								)
-							),
-						column(3)
+			if (testSet$twoCol == "compMeans") {
+				if (ncol(testSet$vals)==2 & all(colnames(testSet$vals) %in% cookedData$nums)){
+					tagList(
+						fluidRow(
+							column(3),
+							column(6,
+								wellPanel(align="center",
+									h3("Test setup"),
+									hr(),
+									h4("Data"),
+									checkboxInput("paired", "Individual rows form pairs", FALSE),
+									hr(),
+									h4("Hypothesis"),
+									selectInput("tails", paste("The mean in", colnames(testSet$vals)[1], "is:"), c(
+										"Lower"="less",
+										"Different"="two.sided",
+										"Higher"="greater"),
+										selected="two.sided"
+										),
+									p(style="font-weight:700; font-size: 14px ", paste("in comparison to", colnames(testSet$vals)[2])),
+									actionButton("doTest", "Save", style="background-color: green; color: white")
+									)
+								),
+							column(3)
+							)
 						)
-					)
+					}
+					
+				else if (ncol(testSet$vals)>2 & all(colnames(testSet$vals) %in% cookedData$nums)){
+					tagList(
+						fluidRow(
+							column(3),
+							column(6,
+								wellPanel(align="center",
+									h3("Test setup"),
+									hr(),							
+									h4("Hypothesis"),
+									hr(),
+									p("If your data contains several groups which you planned beforehand, set them up here."),
+									p("Example case: Your data contains non-native (French, German) and native speakers. 
+										You hypothesized that natives differ from non-natives, and French differ from Germans.
+									"),
+									actionButton("setConts", "Planned contrasts", class="btn btn-info"),	
+									actionButton("doATest", "Proceed", style="background-color: green; color: white")
+									)
+								),
+							column(3)
+							)
+						)
+					}
 				}
 				
-			else if (ncol(testSet$vals)>2 & all(colnames(testSet$vals) %in% cookedData$nums)){
-				tagList(
-					fluidRow(
-						column(3),
-						column(6,
-							wellPanel(align="center",
-								h3("Test setup"),
-								hr(),							
-								h4("Hypothesis"),
-								hr(),
-								p("If your data contains several groups which you planned beforehand, set them up here."),
-								p("Example case: Your data contains non-native (French, German) and native speakers. 
-									You hypothesized that natives differ from non-natives, and French differ from Germans.
-								"),
-								actionButton("setConts", "Planned contrasts", class="btn btn-info"),	
-								actionButton("doATest", "Proceed", style="background-color: green; color: white")
-								)
-							),
-						column(3)
-						)
-					)
-				}										
+				else {invisible()}
 			}
 			
 		else if (testSet$settings == "grComp"){
@@ -1680,67 +1723,104 @@ shinyServer(function(input, output, session) {
 
 			})
 			
-	doChisq <- function(dat) {
-		# Check that we can do X-squared:
-		#1. Check that there is an overlap in the levels
-		c1 <- dat[,1]
-		c2 <- dat[,2]
-		grLabs <- colnames(dat)			
-		if (testSet$settings == "grComp"){
-			grLabs <- levels(c2)
-			c1.x <- c1[c2==levels(c2)[1]]
-			c2.x <- c1[c2==levels(c2)[2]]
-			c1 <- c1.x
-			c2 <- c2.x	
-			}
-		
-		if (!any(levels(c1) %in% levels(c2))){
-			return(list(results=NULL, type="applesToOranges"))
-			}
-		
-		else { 
-			# Merge the levels in both columns, so that levels not present in col A equal to 0 rather than error, remove NAs
-			levs <- sort(unique(c(levels(c1), levels(c2))))
-			levs <- levs[!is.na(levs)]
-			if (settings$na.ignore == "ignore"){
-				c1 <- c1[!is.na(c1)]
-				c2 <- c2[!is.na(c2)]
+	doChisq <- function(dat, type="raw") {
+		if (type=="raw"){
+			# Check that we can do X-squared:
+			#1. Check that there is an overlap in the levels
+			c1 <- dat[,1]
+			c2 <- dat[,2]
+			grLabs <- colnames(dat)			
+			if (testSet$settings == "grComp"){
+				grLabs <- levels(c2)
+				c1.x <- c1[c2==levels(c2)[1]]
+				c2.x <- c1[c2==levels(c2)[2]]
+				c1 <- c1.x
+				c2 <- c2.x	
 				}
+			
+			if (!any(levels(c1) %in% levels(c2))){
+				return(list(results=NULL, type="applesToOranges"))
+				}
+			
+			else { 
+				# Merge the levels in both columns, so that levels not present in col A equal to 0 rather than error, remove NAs
+				levs <- sort(unique(c(levels(c1), levels(c2))))
+				levs <- levs[!is.na(levs)]
+				if (settings$na.ignore == "ignore"){
+					c1 <- c1[!is.na(c1)]
+					c2 <- c2[!is.na(c2)]
+					}
+					
+				c1 <- factor(c1, levels=levs)
+				c2 <- factor(c2, levels=levs)	
 				
-			c1 <- factor(c1, levels=levs)
-			c2 <- factor(c2, levels=levs)	
-			
-			t1 <- as.vector(table(c1))
-			t2 <- as.vector(table(c2))
-			
-			comp <- t1 < t2
-			
-			tab <- data.frame(t1,t2)
-			
+				t1 <- as.vector(table(c1))
+				t2 <- as.vector(table(c2))
+				
+				comp <- t1 < t2
+				
+				tab <- data.frame(t1,t2)		
+			}
+		
 			forplot <- factor(c(as.character(c1), as.character(c2)))
 			forplot <- data.frame(id=c(rep(grLabs[1], length(c1)),rep(grLabs[2], length(c2))) ,values=forplot)			
-			p.obj <- ggplot(forplot, aes(id, fill=values)) + geom_bar(position=position_dodge()) + theme_bw()
-			#There should not be any zeros or expected values below 5 
-			cond1 <- sum(tab==0)
-			cond2 <- getExp(tab)
+			p.obj <- ggplot(forplot, aes(id, fill=values)) + geom_bar(position=position_dodge()) + theme_bw()		
+		
+		}
+
+		else if (type=="count") {
+			req(testSet$namesCol)
+			catnames <- factor(cookedData$cooked[[testSet$namesCol]])
+			# Check that we can do X-squared:
+			#1. Check that there is an overlap in the levels
+			c1 <- dat[,1]
+			c2 <- dat[,2]
+			grLabs <- colnames(dat)			
+
+			# Merge the levels in both columns, so that levels not present in col A equal to 0 rather than error, remove NAs			
+			if (settings$na.ignore == "ignore"){
+				fil = !is.na(c1) & !is.na(c2)
+				c1 <- c1[fil]
+				c2 <- c2[fil]
+				}
+			levs <- as.character(catnames)
 			
-			if (cond1 == 0 & !any(cond2 < 5)){
-				t.obj <- suppressWarnings(chisq.test(tab))
-				rownames(t.obj$observed) <- levs
-				colnames(t.obj$observed) <- grLabs
-				return(list(results=t.obj, type="chisq2", larger=levs[comp], smaller=levs[!comp], plot=p.obj))
-				}
-				
-			else {		
-				t.obj <- suppressWarnings(fisher.test(tab))
-				t.obj$observed <- tab
-				rownames(t.obj$observed) <- levs
-				colnames(t.obj$observed) <- grLabs	
-				return(list(results=t.obj, type="fisher2", larger=levs[comp], smaller=levs[!comp], plot=p.obj))
-				}
-				
-			}			
-	}	
+			dat <- data.frame(c1,c2)	
+
+			forplot <- data.frame(c(c1,c2), c(rep(grLabs[1],length(c1)), rep(grLabs[2],length(c2))), rep(factor(catnames),2))
+			colnames(forplot) <- c("Frequency", "Data", "Category")
+			p.obj <- ggplot(forplot, aes(Data,y=Frequency, fill=Category))+
+				geom_col() + 
+				theme_bw()		
+			comp <- c1 < c2			
+			tab <- data.frame(c1,c2)
+		
+		}
+			
+			
+			
+
+		#There should not be any zeros or expected values below 5 
+		cond1 <- sum(tab==0)
+		cond2 <- getExp(tab)
+		
+		if (cond1 == 0 & !any(cond2 < 5)){
+			t.obj <- suppressWarnings(chisq.test(tab))
+			rownames(t.obj$observed) <- levs
+			colnames(t.obj$observed) <- grLabs
+			return(list(results=t.obj, type="chisq2", larger=levs[comp], smaller=levs[!comp], plot=p.obj))
+			}
+			
+		else {		
+			t.obj <- suppressWarnings(fisher.test(tab))
+			t.obj$observed <- tab
+			rownames(t.obj$observed) <- levs
+			colnames(t.obj$observed) <- grLabs	
+			return(list(results=t.obj, type="fisher2", larger=levs[comp], smaller=levs[!comp], plot=p.obj))
+			}
+			
+		}			
+
 	
 	doTtest <- function(dat){
 		# Check that we can do t-test
@@ -1997,10 +2077,19 @@ shinyServer(function(input, output, session) {
 		if (testSet$settings == "colComp") {
 			if (ncol(testSet$vals)==2){
 				if (all(colnames(testSet$vals) %in% cookedData$cats)) {
-						return(doChisq(testSet$vals))
+						return(doChisq(testSet$vals, type="raw"))
 					}
 				else if (all(colnames(testSet$vals) %in% cookedData$nums)) {
+				
+					if (testSet$twoCol == "compMeans"){
 						return(doTtest(testSet$vals))
+						}
+					else if (testSet$twoCol == "compCount"){
+						return(doChisq(testSet$vals, type="count"))
+						}
+					else if (testSet$twoCol == "correlate"){
+						return(doCor(testSet$vals))
+						}					
 					}
 				}
 				
@@ -2921,9 +3010,7 @@ shinyServer(function(input, output, session) {
 									if (pval<0.05) {p(style="color: green; font-weight:400", "significant")
 										} else {p(style="color: green; font-weight:400", "not significant")},
 									br(),
-									p(sprintf("R2: %g",  max(round(inp$sm$r.squared, 4), 0.0001))),
-									if (inp$sm$r.squared<0.05) {p(style="color: green; font-weight:400", "significant")
-										} else {p(style="color: green; font-weight:400", "not significant")}
+									p(sprintf("R2: %g",  max(round(inp$sm$r.squared, 4), 0.0001)))
 									)
 								),
 							column(4,
@@ -2966,7 +3053,7 @@ shinyServer(function(input, output, session) {
 				}
 			else {tagList(
 				fluidRow(
-					p("MODELLING")
+					p("Not implemented yet")
 					)
 				)}
 			}
@@ -2994,8 +3081,9 @@ shinyServer(function(input, output, session) {
 	
 	
 	output$freqComparisonColComp <- renderUI({
-		req(testSet$settings)
-		if (testSet$settings=="colComp"){frqComp()}
+		req(testSet$settings)		
+		if (testSet$settings=="colComp"){			
+			frqComp()}
 		else {invisible()}
 		})
 		
@@ -3075,9 +3163,10 @@ shinyServer(function(input, output, session) {
 		req(testRes(), testSet$vals)
 		inp <- testRes()
 		n <- colnames(testSet$vals)
+		
 		# a <- colnames(testSet$vals)
 				
-		if (inp$type %in% c("fisher2", "chisq2")) {
+		if (inp$type %in% c("fisher2", "chisq2")) {			
 			if (testSet$settings == "colComp"){
 				o <- paste("<p>Compared to", n[1], "the following changes occur in", n[2], "</p><br />")
 				o <- paste(o, '<ul style="list-style-type: none;">')
