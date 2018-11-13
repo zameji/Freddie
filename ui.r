@@ -177,7 +177,8 @@ fluidPage(
 			
 			fluidRow(column(2),
 				column(8, align="center",
-					plotOutput("outplot")
+					plotOutput("outplot"),
+					br()
 					),
 				column(2)),
 				

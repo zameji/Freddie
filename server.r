@@ -3647,7 +3647,7 @@ shinyServer(function(input, output, session) {
 			inp <- testRes()
 			
 			if (inp$type %in% c("fisher2", "chisq2", "fisher", "chisq", "ttest2", "wilcox2", "anova", "anovaOnRanks", "spearman", "pearson")) {
-				inp$plot
+				inp$plot + theme(text=element_text(family=ifelse(settings$family=="serif", "serif", "sans")))
 				}		
 			}
 		else {invisible()}		
@@ -3659,7 +3659,7 @@ shinyServer(function(input, output, session) {
 			inp <- testRes()
 			
 			if (inp$type %in% c("fisher2", "chisq2", "fisher", "chisq", "ttest2", "wilcox2", "anova", "anovaOnRanks")) {
-				inp$plot
+				inp$plot + theme(text=element_text(family=ifelse(settings$family=="serif", "serif", "sans")))
 				}		
 			}
 		else {invisible()}		
@@ -3672,7 +3672,7 @@ shinyServer(function(input, output, session) {
 			print("MODELLING")
 			# print(inp$type)
 			if (inp$type %in% c("linreg")) {
-				inp$plot
+				inp$plot + theme(text=element_text(family=ifelse(settings$family=="serif", "serif", "sans")))
 				}
 			else {invisible()}	
 				
