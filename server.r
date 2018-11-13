@@ -426,7 +426,7 @@ shinyServer(function(input, output, session) {
 	plotType <- reactiveValues(current=NULL)
 	importSettings <- reactiveValues(header=TRUE, sep="\t", quoter='"')	
 	testSet <- reactiveValues(settings=NULL, vals=NULL, manConts=NULL)
-	settings <- reactiveValues(na.ignore="ignore", mod="real")
+	settings <- reactiveValues(na.ignore="ignore", mod="real", cols="b&w", serif="serif")
 	summaryVals <- reactiveValues(freqs=NULL)
 	anovaGroups <- reactiveValues(level=NULL, finished=FALSE, results=NULL)
 	
@@ -447,6 +447,13 @@ shinyServer(function(input, output, session) {
 			)
 		)
 	})
+	
+	observeEvent(input$saveSettings, {
+		settings$na.ignore <- input$naSetting
+		settings$cols <- input$plotCol
+		settings$serif <- input$serif
+		
+		})
 	
 	observeEvent(input$startDemo, {
 		settings$mod <- "demo"
@@ -948,7 +955,6 @@ shinyServer(function(input, output, session) {
 				p("Choose what to do with the missing values. Some tests will not work if they are kept."),
 				selectInput("naAction", label="",
 					c("Ignore missing values"="ignore",
-					"Display in plots, ignore in tests"="plots",
 					"Keep missing values"="keep"
 					), settings$na.ignore),
 				footer=actionButton("ok_nas", "OK"),
@@ -1203,6 +1209,7 @@ shinyServer(function(input, output, session) {
 		req(length(pars$pred)<3)
 		
 		if (settings$na.ignore=="ignore") {plotSet <- plotSet %>% drop_na(c(pars$outcome, pars$pred))}
+		colScale <- "none"
 		
 		# There are no predictors, plot just the outcome
 		if (length(pars$pred)<1) {
@@ -1218,7 +1225,7 @@ shinyServer(function(input, output, session) {
 				req(input$histRange, input$histBins)
 				plotType$current <- "histogram"
 				p <- ggplot(plotSet[between(plotSet[[pars$outcome]],input$histRange[1],input$histRange[2]),], aes_string(pars$outcome))
-				p <- p + geom_histogram(bins=input$histBins)}
+				p <- p + geom_histogram(bins=input$histBins, fill="grey90")}
 			}
 		
 		# There is one predictor
@@ -1228,8 +1235,10 @@ shinyServer(function(input, output, session) {
 			if (pars$outcome %in% cookedData$nums){
 				# The predictor is a factor --> boxplot
 				if (pars$pred %in% cookedData$cats){
+					req(input$catVis)
 					p <- ggplot(plotSet, aes_string(pars$pred, pars$outcome))
-					p <- p + geom_boxplot()
+					if (input$catVis == "violin"){p <- p + geom_violin(draw_quantiles=c(0.25,0.5,0.75))}
+					else {p <- p + geom_boxplot()}	
 					}
 				# The predictor is numeric --> scatterplot
 				else {
@@ -1245,11 +1254,14 @@ shinyServer(function(input, output, session) {
 				if (pars$pred %in% cookedData$cats){
 					p <- ggplot(plotSet, aes_string(pars$pred, fill=pars$outcome))
 					p <- p + geom_bar()
+					colScale <- "fill_discrete"
 					}
 				# The predictor is numeric --> logistic regression?
-				else {			
-					p <- ggplot(plotSet, aes_string(pars$pred, pars$outcome))
-					p <- p + geom_point()				
+				else {
+					req(input$catVis)
+					p <- ggplot(plotSet, aes_string(pars$outcome, pars$pred))
+					if (input$catVis == "violin"){p <- p + geom_violin(draw_quantiles=c(0.25,0.5,0.75)) + coord_flip()}
+					else {p <- p + geom_boxplot() + coord_flip()}					
 					}			
 				}
 			}
@@ -1263,19 +1275,22 @@ shinyServer(function(input, output, session) {
 				if (all(pars$pred %in% cookedData$cats)){
 					p <- ggplot(plotSet, aes_string(x=pars$pred[1], y=pars$outcome, fill=pars$pred[2]))
 					p <- p + geom_boxplot()
+					colScale <- "fill_discrete"
 					}
 				# The predictors is numeric --> scatterplot with color gradient
 				else if (all(pars$pred %in% cookedData$nums)){
 					p <- ggplot(plotSet, aes_string(x=pars$pred[1], y=pars$outcome, color=pars$pred[2]))
 					p <- p + geom_point()
+					colScale <- "fill_gradient"
 					}
 
 				# Mixed predictors --> scatterplot with character mapping
 				else {
 					fil <- pars$pred %in% cookedData$nums
 					p <- ggplot(plotSet, aes_string(x=pars$pred[fil], y=pars$outcome))
-					p <- p + geom_point() + facet_wrap(pars$pred[!fil])
-					
+					req(input$catVis)
+					if (input$catVis == "facet"){p <- p + geom_point() + facet_wrap(pars$pred[!fil])}
+					else {p <- p + geom_point(aes_string(shape=pars$pred[!fil]))+scale_shape_manual(values=c(1,3,5,15,17,0,2,4,6,7,8,9,10,11,12,13,14,16,18,19,20,21,22,23,24,25))}
 					}
 				}
 			
@@ -1286,25 +1301,69 @@ shinyServer(function(input, output, session) {
 				if (all(pars$pred %in% cookedData$cats)){
 					p <- ggplot(plotSet, aes_string(x=pars$pred[1], fill=pars$outcome))
 					p <- p + geom_bar() + facet_wrap(pars$pred[2])
+					colScale <- "fill_discrete"
 					}
 				
 				# The predictors are all numeric --> logistic regression with color
 				else if (all(pars$pred %in% cookedData$nums)){
 					p <- ggplot(plotSet, aes_string(x=pars$pred[1], y=pars$outcome, color=pars$pred[2]))
 					p <- p + geom_point()
+					colScale <- "color_gradient"
 					}					
 				# Mixed predictors --> logistic regression with pch
 				else {
+					req(input$catVis)
 					fil <- pars$pred %in% cookedData$nums			
-					p <- ggplot(plotSet, aes_string(x=pars$pred[fil], y=pars$outcome))
-					p <- p + geom_point() + facet_wrap(pars$pred[!fil])
-
+					p <- ggplot(plotSet, aes_string(x=pars$outcome, y=pars$pred[fil]))
+					p <- p + geom_point()
+					if (input$catVis == "violin_col"){p <- p + geom_violin(aes_string(fill=pars$pred[!fil]), draw_quantiles=c(0.25,0.5,0.75)) + coord_flip()
+						colScale <- "fill_discrete"}
+					else if (input$catVis == "violin_facet"){p <- p + geom_violin(draw_quantiles=c(0.25,0.5,0.75)) + coord_flip() + facet_wrap(pars$pred[!fil])}	
+					else if (input$catVis == "boxplot_col"){p <- p + geom_boxplot(aes_string(fill=pars$pred[!fil])) + coord_flip()
+						colScale <- "fill_discrete"}
+					else if (input$catVis == "boxplot_facet"){p <- p + geom_boxplot() + coord_flip()+facet_wrap(pars$pred[!fil])}
 					}			
 				}
 						
 			}
 	
 		p <- p + theme_bw()
+		if (settings$cols == "b&w"){
+			if (colScale == "fill_discrete"){
+				p <- p + scale_fill_grey(start=0.4, end=0.8)
+				}
+			else if (colScale == "fill_gradient"){
+				p <- p + scale_fill_grey(start=0.4, end=0.8)
+				}
+			else if (colScale == "color_gradient"){
+				p <- p + scale_color_grey(start=0.4, end=0.8)
+				}	
+			else if (colScale == "color_discrete"){		
+				p <- p + scale_color_grey(start=0.4, end=0.8)
+				}
+			}
+		else if (settings$cols == "colored"){
+			getPalette <- colorRampPalette(brewer.pal(10,"Spectral"))
+			if (colScale == "fill_discrete"){
+				p <- p + discrete_scale("fill", "manual", getPalette)
+				}
+			else if (colScale == "fill_gradient"){
+				p <- p + scale_fill_gradient(low="whitesmoke", high="midnightblue")
+				}
+			else if (colScale == "color_gradient"){
+				p <- p + scale_color_gradient(low="whitesmoke", high="midnightblue")
+				}	
+			else if (colScale == "color_discrete"){		
+				p <- p + discrete_scale("color", "manual", getPalette )
+				}				
+			}
+		
+		if (settings$serif == "serif"){
+			p <- p + theme(text=element_text(family="serif"))
+			}		
+		else if (settings$serif == "noserif") {
+			p <- p + theme(text=element_text(family="sans"))		
+			}
 		return(p)
 	})
 	
@@ -1342,7 +1401,11 @@ shinyServer(function(input, output, session) {
 			# the outcome is numeric
 			if (pars$outcome %in% cookedData$nums){
 				# The predictor is a factor --> boxplot
-				if (pars$pred %in% cookedData$cats){}
+				if (pars$pred %in% cookedData$cats){
+					tagList(
+							radioButtons("catVis", "Select visualisation style", choices=c("Boxplot"="boxplot", "Violin plot"="violin"), selected="violin")
+						)					
+					}
 				# The predictor is numeric --> scatterplot
 				else {}			
 				}
@@ -1353,7 +1416,11 @@ shinyServer(function(input, output, session) {
 				# The predictor is a factor --> barplot
 				if (pars$pred %in% cookedData$cats){}
 				# The predictor is numeric --> logistic regression?
-				else {}			
+				else {
+					tagList(
+							radioButtons("catVis", "Select visualisation style", choices=c("Boxplot"="boxplot", "Violin plot"="violin"), selected="violin")
+						)				
+					}			
 				}
 			}
 		
@@ -1362,13 +1429,18 @@ shinyServer(function(input, output, session) {
 			
 			# the outcome is numeric
 			if (pars$outcome %in% cookedData$nums){
-				# The predictor is are factors --> boxplot with subcategories
+				# The predictors are factors --> boxplot with subcategories
 				if (all(pars$pred %in% cookedData$cats)){}
-				# The predictors is numeric --> scatterplot with color gradient
-				else if (all(pars$pred %in% cookedData$nums)){}
+				# The predictors are numeric --> scatterplot with color gradient
+				else if (all(pars$pred %in% cookedData$nums)){				
+					}
 
 				# Mixed predictors --> scatterplot with character mapping
-				else {}
+				else {
+					tagList(
+							radioButtons("catVis", "Select visualisation style", choices=c("Facet plot"="facet", "Character mapping"="charmap"), selected="charmap")
+						)					
+					}
 				}
 			
 			# The outcome is categorical
@@ -1380,7 +1452,15 @@ shinyServer(function(input, output, session) {
 				# The predictors are all numeric --> logistic regression with color
 				else if (all(pars$pred %in% cookedData$nums)){}					
 				# Mixed predictors --> logistic regression with pch
-				else {}			
+				else {
+					tagList(
+							selectInput("catVis", "Select visualisation style", choices=c("Facetted boxplot"="boxplot_facet",
+																						"Facetted violin"="violin_facet",
+																						"Colored boxplot"="boxplot_col", 
+																						"Colored violin"="violin_col"), 
+								selected="violin_col")
+						)									
+					}			
 				}
 			
 			
@@ -1388,15 +1468,13 @@ shinyServer(function(input, output, session) {
 		})
 		
 	output$settings <- renderUI({
-		req(settings$na.ignore)
-		
+
 		tagList(
 			fluidRow(
 				column(6,
 					wellPanel(align="center",
 						selectInput("naSetting", label="NA action",
 								c("Ignore missing values"="ignore",
-								"Display in plots, ignore in tests"="plots",
 								"Keep missing values"="keep"),
 								settings$na.ignore
 								),
@@ -1404,7 +1482,23 @@ shinyServer(function(input, output, session) {
 							)
 						),
 				column(6,
-					wellPanel()
+					wellPanel(align="center",
+						h3("Plotting options"),
+						selectInput(
+							"plotCol",
+							"Colors",
+							choices=c("Black and white"="b&w",
+								"Colored"="colored"),
+							settings$cols),
+						selectInput(
+							"serif",
+							"Font",
+							choices=c("Serif"="serif",
+								"Sans serif"="noserif"
+								),
+							selected=settings$serif	
+							)
+						)
 					)
 				)
 			)
@@ -1690,7 +1784,6 @@ shinyServer(function(input, output, session) {
 		else {invisible()}
 		})
 
-
 	output$testSettingsMod <- renderUI({
 		req(testSettings(), testSet$settings)
 		if(testSet$settings=="mod"){
@@ -1698,7 +1791,6 @@ shinyServer(function(input, output, session) {
 			}
 		else {invisible()}
 		})
-
 		
 	testSettings <- reactive({
 		req(testSet$settings, testSet$vals)
@@ -1938,7 +2030,6 @@ shinyServer(function(input, output, session) {
 			}
 			
 		}			
-
 	
 	doTtest <- function(dat){
 		# Check that we can do t-test
@@ -2124,6 +2215,7 @@ shinyServer(function(input, output, session) {
 			return(list(results=t.obj, sm=sm, type="anovaOnRanks", plot=p.obj,  conts=conts, ordering=ordering))
 			}		
 		}
+	
 	doBigChisq <- function(dat, conts) {
 		print("BIGCHISQ")
 		if (testSet$settings=="colComp"){
@@ -2354,7 +2446,7 @@ shinyServer(function(input, output, session) {
 	# CREATE THE SUMMARY
 	output$testOutputColComp <- renderUI({
 		req(testSet$settings)
-		
+		req(testRes())
 		if (testSet$settings == "colComp"){
 					
 			req(testRes()$type, testSet$vals)
@@ -2527,7 +2619,8 @@ shinyServer(function(input, output, session) {
 										br(),
 										p(sprintf("correlation coefficient: %g", max(round(inp$results$estimate, 4), 0.0001))),
 										if (inp$results$p.value>0) {p(style="font-weight:400", "positive")
-											} else {p(style="font-weight:400", "negative")}	,									
+											} else {p(style="font-weight:400", "negative")}	,
+										br(),
 										p(sprintf("p-value: %g", max(round(inp$results$p.value, 4), 0.0001))),
 										if (inp$results$p.value<0.05) {p(style="color: green; font-weight:400", "significant")
 											} else {p(style="color: red; font-weight:400", "not significant")}
@@ -2561,26 +2654,25 @@ shinyServer(function(input, output, session) {
 							column(8,
 								wellPanel(
 									h4("Summary"),
-									br()
-									# ,
-									# p(gsub(" .", ".",
-										# paste("The relationship between the variables", n[1], "' and '", n[2], "' was evaluated with ", 
-											# inp$results$method,". The correlation coefficient between these two variables was", ifelse(inp$type$method=="pearson", "r=", "rho="), inp$results$estimate,
-											# "The fact that the p-value yielded by the test was ", ifelse(inp$results$p.value<0.05, "below", "above"), 
-											# " the significance level of 0.05 ", 
-											# ifelse(inp$type=="pearson", 
-												# sprintf("(p= %g, t= %g, df=%g) ",  max(round(inp$results$p.value, 4), 0.0001), round(inp$results$statistic, 3), inp$results$parameter),
-												# sprintf("(p= %g, S= %g) ",  max(round(inp$results$p.value, 4), 0.0001), round(inp$results$statistic, 3))
-												# ),
-											# "suggests that the correlation coefficient in the population ",ifelse(inp$results$p.value<0.05, "is", "may not be"), " different from zero. In other words, it is",
-											# ifelse(inp$results$p.value<0.05, "likely", "unlikely"), " that knowing the value of '", n[1], "' allows to predict '", n[2], "' and vice versa. ",
-											# "The size of the correlation coefficient suggests a", ifelse(inp$results$estimate<0, "negative", "positive"), "correlation, i.e. as one of the variables increases, the other",
-											# ifelse(inp$results$estimate<0, "decreases.", "increases as well."), "Additionally, the relationship is", getCorLab(inp$results$estimate), 
-											# " ; thus, by knowing the value of one of the variables, it is", ifelse(abs(inp$results$estimate>0.1),"", "not"), "possible to predict the value of the other", getCorLab(inp$results$estimate, rel=F),
-											# sep=""),
-										# fixed=T)
+									br(),
+									p(gsub(" .", ".",
+										paste("The relationship between the variables '", n[1], "' and '", n[2], "' was evaluated with ", 
+											inp$results$method,". The correlation coefficient between these two variables was ", ifelse(inp$type=="pearson", "r=", "rho="), round(inp$results$estimate,3),
+											". The fact that the p-value yielded by the test was ", ifelse(inp$results$p.value<0.05, "below", "above"), 
+											" the significance level of 0.05 ", 
+											ifelse(inp$type=="pearson", 
+												sprintf("(p= %g, t= %g, df=%g) ",  max(round(inp$results$p.value, 4), 0.0001), round(inp$results$statistic, 3), inp$results$parameter),
+												sprintf("(p= %g, S= %g) ",  max(round(inp$results$p.value, 4), 0.0001), round(inp$results$statistic, 3))
+												),
+											"suggests that the correlation coefficient in the population ",ifelse(inp$results$p.value<0.05, "is", "may not be"), " different from zero. In other words, it is",
+											ifelse(inp$results$p.value<0.05, " likely", " unlikely"), " that knowing the value of '", n[1], "' allows to predict '", n[2], "' and vice versa. ",
+											"The size of the correlation coefficient suggests a ", ifelse(inp$results$estimate<0, "negative", "positive"), " correlation, i.e. as one of the variables increases, the other ",
+											ifelse(inp$results$estimate<0, "decreases.", "increases as well."), " Additionally, the relationship is ", getCorLab(inp$results$estimate), 
+											"; thus, by knowing the value of one of the variables, it is ", ifelse(abs(inp$results$estimate>0.1),"", "not "), "possible to predict the value of the other ", getCorLab(inp$results$estimate, rel=F), ".",
+											sep=""),
+										fixed=T)
 									
-										# )							
+										)							
 									)
 								),
 							column(2)			
@@ -3308,8 +3400,7 @@ shinyServer(function(input, output, session) {
 			)
 	
 		})
-	
-	
+		
 	output$freqComparisonColComp <- renderUI({
 		req(testSet$settings)		
 		if (testSet$settings=="colComp"){			
@@ -3536,8 +3627,7 @@ shinyServer(function(input, output, session) {
 			
 			}
 		})
-		
-		
+				
 	output$testTable <- renderTable(rownames=T, {
 		req(testRes())
 		inp <- testRes()
@@ -3589,14 +3679,13 @@ shinyServer(function(input, output, session) {
 			}
 		else {invisible()}		
 		})
-		
-		
+				
 	output$effectCol <- renderPlot({
 		req(testRes())
 		inp <- testRes()
-
-		print(inp$results$estimate)	
-		print(inp$method)
+		print("EFFECT")
+		# print(inp$results$estimate)	
+		# print(inp$method)
 		
 		if (testSet$settings == "colComp"){
 			if (inp$type %in% c("ttest2", "wilcox2")) {
@@ -3604,9 +3693,9 @@ shinyServer(function(input, output, session) {
 				}
 			
 			else if (inp$type %in% c("spearman", "pearson")) {
-				print(inp$results$estimate)
-				print(inp$method)
-				corPlot(inp$results$estimate, type=inp$method)
+				# print(inp$results$estimate)
+				# print(inp$method)
+				corPlot(inp$results$estimate, type=inp$type)
 				}
 			}
 

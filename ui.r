@@ -175,17 +175,17 @@ fluidPage(
 					)
 				),
 			
-			fluidRow(column(1),
-				column(10, align="center",
+			fluidRow(column(2),
+				column(8, align="center",
 					plotOutput("outplot")
 					),
-				column(1)),
+				column(2)),
 				
-			fluidRow(column(1),
-				column(10, align="center",
+			fluidRow(column(2),
+				column(8, align="center",
 					div(class="text-center;", uiOutput("plotChoices"))
 					),
-				column(1))				
+				column(2))				
 			
 			),
 			
@@ -218,13 +218,25 @@ fluidPage(
 			"_______________",
 			"Test",
 			tabPanel("Columns ", class="padded-page",
-				actionButton("colCChange", "Select different columns"),
+				fluidRow(	
+					column(5),
+					column(2,
+						actionButton("colCChange", "Select different columns", class="btn btn-info")
+						),
+					column(5)
+					),
 				uiOutput("testOutputColComp"),
 				uiOutput("testSettingsColComp")
 				),
 
 			tabPanel("Groups ", class="padded-page",
-				actionButton("grCChange", "Select groups", class="btn btn-primary"),
+				fluidRow(	
+					column(5),
+					column(2,			
+						actionButton("grCChange", "Select groups", class="btn btn-info")
+						),
+					column(5)
+					),				
 				uiOutput("testOutputGrComp"),
 				uiOutput("testSettingsGrComp")
 				),
@@ -232,7 +244,13 @@ fluidPage(
 			"Modelling",
 
 			tabPanel("Model data", class="padded-page",
-				actionButton("modChange", "Select", class="btn btn-primary"),
+				fluidRow(	
+					column(5),
+					column(2,			
+						actionButton("modChange", "Select", class="btn btn-info")
+						),
+					column(5)
+					),						
 				uiOutput("testOutputMod"),
 				uiOutput("testSettingsMod")
 				)
