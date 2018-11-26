@@ -970,7 +970,7 @@ shinyServer(function(input, output, session) {
 		
 		})
 		
-	observeEvent(input$setConts,{
+	observeEvent(input$setContsCol,{
 		
 		req(testSet$vals)
 		
@@ -1014,6 +1014,7 @@ shinyServer(function(input, output, session) {
 			modalDialog(
 				title="Set contrasts",
 				p("You can now divide the labels into groups. To do so, draw the labels into the appropriate bin. Labels left aside will still be used in the overall evaluation."),
+				p(style="col: 'red'; font-weight: bold", "Important: To make sure that the results reported are correct, only draw labels from ONE LINE in each round of contrast set up. Contrasting labels from different rows may lead to incorrect results."),
 				fluidRow(
 					column(6,
 						wellPanel(align="center",
@@ -1042,7 +1043,79 @@ shinyServer(function(input, output, session) {
 				)
 			)
 		})
-
+	observeEvent(input$setContsGr,{
+		
+		req(testSet$vals)
+		
+		anovaGroups$finished <- NULL
+				
+		if (testSet$settings=="colComp") {
+			dat0 <- testSet$vals
+			ids <- colnames(dat0)
+			dat <- data.frame(values__=c(), id__=c())
+			for (i in ids) {
+				dat <- rbind(dat, data.frame(values__=dat0[, i], id__=rep(i, length(dat0[, i]))))
+				}
+			
+			dat$id__ <- factor(dat$id__)			
+			if (settings$na.ignore=="ignore"){dat <- dat[rowSums(is.na(dat))==0,]}		
+		
+			groups <- levels(dat[,2])
+			}
+			
+		else if (testSet$settings=="grComp"){
+			dat <- testSet$vals
+			colnames(dat) <- c("values__", "id__")			
+			dat$id__ <- factor(dat$id__)
+			
+			if (settings$na.ignore=="ignore"){dat <- dat[rowSums(is.na(dat))==0,]}		
+				
+			groups <- levels(dat[,2])
+			}
+		
+		if (settings$na.ignore=="ignore"){dat <- dat[rowSums(is.na(dat))==0,]}
+		
+		print("DOING")		
+		anovaGroups$groupMatrix <- data.frame(matrix(ncol=length(groups), nrow=10))
+		colnames(anovaGroups$groupMatrix) <- groups
+				
+		anovaGroups$groupMatrix[1,] <- 1
+		anovaGroups$level <- 1		
+		anovaGroups$groupnos <- c(2,3)
+						
+		showModal(
+			modalDialog(
+				title="Set contrasts",
+				p("You can now divide the labels into groups. To do so, draw the labels into the appropriate bin. Labels left aside will still be used in the overall evaluation."),
+				p(style="col: 'red'; font-weight: bold", "Important: To make sure that the results reported are correct, only draw labels from ONE LINE in each round of contrast set up. Contrasting labels from different rows may lead to incorrect results."),
+				fluidRow(
+					column(6,
+						wellPanel(align="center",
+							orderInput('gr1', 'Group 1', items=c(),
+							as_source = FALSE, connect = c("gr2", "inp1"), width="100%", item_class="primary", placeholder="")
+							)),
+					column(6,
+						wellPanel(align="center",
+							orderInput('gr2', 'Group 2', items=c(),
+							as_source = FALSE, connect =  c("gr1", "inp1"), width="100%", item_class="primary", placeholder="")				
+							))
+					),
+				fluidRow(						
+					column(12,
+						wellPanel(align="center",
+							orderInput('anovaInp1', 'Labels available', items=groups,
+							as_source = FALSE, connect = c("gr1", "gr2"), width="100%", item_class="primary", placeholder="")				
+							)
+						)					
+					),
+				footer=tagList(
+					actionButton("nextConts", "Next contrast"),
+					actionButton("saveConts", "Done")
+					),
+				fade=FALSE
+				)
+			)
+		})
 	observeEvent(input$saveConts, {
 		anovaGroups$level <- anovaGroups$level + 1
 		if (length(input$gr1_order)>0){anovaGroups$groupMatrix[anovaGroups$level, input$gr1_order] <- anovaGroups$groupnos[1]}
@@ -1088,6 +1161,7 @@ shinyServer(function(input, output, session) {
 			modalDialog(
 				title="Set contrast",
 				p("You can now divide the labels into groups. To do so, draw the labels into the appropriate bin. Labels left aside will still be used in the overall evaluation."),
+				p(style="col: 'red'; font-weight: bold", "Important: To make sure that the results reported are correct, only draw labels from ONE LINE in each round of contrast set up. Contrasting labels from different rows may lead to incorrect results."),
 				fluidRow(
 					column(6,
 						wellPanel(align="center",
@@ -1130,11 +1204,20 @@ shinyServer(function(input, output, session) {
 			)
 	
 		})
-			
+	observeEvent(input$doATestCol, {
+		print(input$doATestCol)
+		print(is.null(testRes()))})
+	observeEvent(input$doATestGr, {})
+	
 	aovConts <- reactive({
 		# reactlog::listDependencies()	
 		req(testSet$vals)
-		req(input$doATest > 0)
+		req(!is.null(input$doATestCol)|!is.null(input$doATestGr))
+		
+		if (!is.null(input$doATestCol)) {req(input$doATestCol > 0)}
+		else {
+			req(input$doATestGr > 0)
+			}
 
 		if (testSet$settings == "colComp"){
 			dat0 <- testSet$vals
@@ -1152,13 +1235,33 @@ shinyServer(function(input, output, session) {
 		if (settings$na.ignore=="ignore"){dat <- dat[rowSums(is.na(dat))==0,]}		
 								
 		
-		if (input$setConts==0){	
-			if (testSet$settings=="colComp"){return(contrasts(dat$id__))}
-			else if (testSet$settings=="grComp"){return(contrasts(dat[,2]))}	
-				}
-				
+		if (!is.null(input$setContsGr)){
+			if (input$setContsGr==0) {manualContrasts <- "GrFALSE"}
+			else {manualContrasts <- "GrTRUE"}
+			}
+			
+		if (!is.null(input$setContsCol)){
+			if (input$setContsCol==0) {manualContrasts <- "ColFALSE"}
+			else {manualContrasts <- "ColTRUE"}
+			}
+
+		if (manualContrasts %in% c("ColFALSE","GrFALSE")){
+			if (testSet$settings=="colComp"){
+				print("ContsNO")
+				return(contrasts(dat$id__))}
+			else if (testSet$settings=="grComp"){
+				print("ContsNO")
+				return(contrasts(dat[,2]))}		
+			}
+			
 		else{
-			req(input$setConts)
+			req(!is.null(input$setContsGr)|!is.null(input$setContsCol))
+			
+			if (!is.null(input$setContsGr)) {req(input$setContsGr > 0)}
+			else {
+				req(input$setContsCol > 0)
+				}			
+
 			req(anovaGroups$groupMatrix, anovaGroups$finished)
 									
 			conts <- anovaGroups$groupMatrix[-1,]
@@ -1191,6 +1294,7 @@ shinyServer(function(input, output, session) {
 			colnames(contTable) <- getColNames(contTable)
 			contrasts(dat[,2]) <- as.matrix(contTable)				
 			# print(contTable)
+			print("ContsYES")
 			return(contTable)
 			}
 
@@ -1794,83 +1898,87 @@ shinyServer(function(input, output, session) {
 		
 	testSettings <- reactive({
 		req(testSet$settings, testSet$vals)
-		curCase <- testSet$settings
 		if (testSet$settings == "colComp"){
-			if (testSet$twoCol == "compMeans") {
-				if (ncol(testSet$vals)==2 & all(colnames(testSet$vals) %in% cookedData$nums)){
-					tagList(
-						fluidRow(
-							column(3),
-							column(6,
-								wellPanel(align="center",
-									h3("Test setup"),
-									hr(),
-									h4("Data"),
-									checkboxInput("paired", "Individual rows form pairs", FALSE),
-									hr(),
-									h4("Hypothesis"),
-									selectInput("tails", paste("The mean in", colnames(testSet$vals)[1], "is:"), c(
-										"Lower"="less",
-										"Different"="two.sided",
-										"Higher"="greater"),
-										selected="two.sided"
-										),
-									p(style="font-weight:700; font-size: 14px ", paste("in comparison to", colnames(testSet$vals)[2])),
-									actionButton("doTestCol", "Save", style="background-color: green; color: white")
-									)
-								),
-							column(3)
+			if (ncol(testSet$vals)==2){
+				if (testSet$twoCol == "compMeans") {
+					if (ncol(testSet$vals)==2 & all(colnames(testSet$vals) %in% cookedData$nums)){
+						tagList(
+							fluidRow(
+								column(3),
+								column(6,
+									wellPanel(align="center",
+										h3("Test setup"),
+										hr(),
+										h4("Data"),
+										checkboxInput("paired", "Individual rows form pairs", FALSE),
+										hr(),
+										h4("Hypothesis"),
+										selectInput("tails", paste("The mean in", colnames(testSet$vals)[1], "is:"), c(
+											"Lower"="less",
+											"Different"="two.sided",
+											"Higher"="greater"),
+											selected="two.sided"
+											),
+										p(style="font-weight:700; font-size: 14px ", paste("in comparison to", colnames(testSet$vals)[2])),
+										actionButton("doTestCol", "Save", style="background-color: green; color: white")
+										)
+									),
+								column(3)
+								)
 							)
-						)
+						}
+						
 					}
 					
-				else if (ncol(testSet$vals)>2 & all(colnames(testSet$vals) %in% cookedData$nums)){
-					tagList(
-						fluidRow(
-							column(3),
-							column(6,
-								wellPanel(align="center",
-									h3("Test setup"),
-									hr(),							
-									h4("Hypothesis"),
-									hr(),
-									p("If your data contains several groups which you planned beforehand, set them up here."),
-									p("Example case: Your data contains non-native (French, German) and native speakers. 
-										You hypothesized that natives differ from non-natives, and French differ from Germans.
-									"),
-									actionButton("setConts", "Planned contrasts", class="btn btn-info"),	
-									actionButton("doATest", "Proceed", style="background-color: green; color: white")
-									)
-								),
-							column(3)
-							)
-						)
-					}
+					else if (testSet$twoCol=="correlate"){
+						tagList(
+							fluidRow(
+								column(3),
+								column(6,
+									wellPanel(align="center",
+										h3("Test setup"),
+										hr(),							
+										selectInput("method", paste("The relationship between", colnames(testSet$vals)[1], "and", colnames(testSet$vals)[2], "is:"), c(
+											"Linear"="pearson",
+											"Monotonic"="spearman"),
+											selected="spearman"
+											),
+										p("Linear relationships can be visualised as a simple line, connecting the dots on a scatterplot. Monotonic relationships can be represented by a curve or a line."),
+										actionButton("doCorTest", "Proceed", style="background-color: green; color: white")
+										)
+									),
+								column(3)
+								)
+							)				
+						}
+					
+					else {invisible()}			
 				}
-				
-				else if (testSet$twoCol=="correlate"){
-					tagList(
-						fluidRow(
-							column(3),
-							column(6,
-								wellPanel(align="center",
-									h3("Test setup"),
-									hr(),							
-									selectInput("method", paste("The relationship between", colnames(testSet$vals)[1], "and", colnames(testSet$vals)[2], "is:"), c(
-										"Linear"="pearson",
-										"Monotonic"="spearman"),
-										selected="spearman"
-										),
-									p("Linear relationships can be visualised as a simple line, connecting the dots on a scatterplot. Monotonic relationships can be represented by a curve or a line."),
-									actionButton("doCorTest", "Proceed", style="background-color: green; color: white")
-									)
-								),
-							column(3)
-							)
-						)				
-					}
-				
-				else {invisible()}
+			
+			else if (ncol(testSet$vals)>2 & all(colnames(testSet$vals) %in% cookedData$nums)){
+				tagList(
+					fluidRow(
+						column(3),
+						column(6,
+							wellPanel(align="center",
+								h3("Test setup"),
+								hr(),							
+								h4("Hypothesis"),
+								hr(),
+								p("If your data contains several groups which you planned beforehand, set them up here."),
+								p("Example case: Your data contains non-native (French, German) and native speakers. 
+									You hypothesized that natives differ from non-natives, and French differ from Germans.
+								"),
+								actionButton("setContsCol", "Planned contrasts", class="btn btn-info"),	
+								actionButton("doATestCol", "Proceed", style="background-color: green; color: white")
+								)
+							),
+						column(3)
+						)
+					)
+				}
+			
+			else {invisible()}
 			}
 			
 		else if (testSet$settings == "grComp"){
@@ -1915,8 +2023,8 @@ shinyServer(function(input, output, session) {
 								p("Example case: Your data contains non-native (French, German) and native speakers. 
 									You hypothesized that natives differ from non-natives, and French differ from Germans.
 								"),
-								actionButton("setConts", "Plannned contrasts", class="btn btn-info"),	
-								actionButton("doATest", "Proceed", style="background-color: green; color: white")
+								actionButton("setContsGr", "Plannned contrasts", class="btn btn-info"),	
+								actionButton("doATestGr", "Proceed", style="background-color: green; color: white")
 								)
 							),
 						column(3)
@@ -2140,9 +2248,17 @@ shinyServer(function(input, output, session) {
 		}
 
 	doAOV <- function(dat0, conts){
-	
-		req(input$doATest > 0)
-		str(dat0)
+		# str(dat0)
+		
+		req(!is.null(input$doATestCol)|!is.null(input$doATestGr))
+		if (!is.null(input$doATestCol)) {
+			temp <- input$doATestCol
+			req(input$doATestCol > 0)}
+		else {
+			temp <- input$doATestGr
+			req(input$doATestGr > 0)
+			}
+		
 		if (testSet$settings == "colComp") {
 			ids <- colnames(dat0)
 			dat <- data.frame(values__=c(), id__=c())
@@ -2158,6 +2274,8 @@ shinyServer(function(input, output, session) {
 			}
 		
 		colnames(dat) <- c("value__", "id__")
+		contrasts(dat$id__) <- conts
+		
 		
 		if (settings$na.ignore=="ignore"){dat <- dat[rowSums(is.na(dat))==0,]}
 	
@@ -2186,7 +2304,7 @@ shinyServer(function(input, output, session) {
 				scale_fill_brewer("Group", palette="Accent")	+
 				xlab("Group")+
 				ylab("Mean")
-				
+			print("AOV-DONE")
 			return(list(results=t.obj, sm=sm, type="anova", plot=p.obj, conts=conts, ordering=ordering))
 			}
 		
@@ -2211,7 +2329,7 @@ shinyServer(function(input, output, session) {
 				scale_fill_brewer("Group", palette="Accent")	+
 				xlab("Group") +
 				ylab("Mean")			
-			
+			print("KW-DONE")
 			return(list(results=t.obj, sm=sm, type="anovaOnRanks", plot=p.obj,  conts=conts, ordering=ordering))
 			}		
 		}
@@ -2453,7 +2571,7 @@ shinyServer(function(input, output, session) {
 			a <- anovaGroups$finished		
 			
 			inp <- testRes()
-			# print(inp)
+			print(inp)
 			
 			if (inp$type %in% c("chisq2", "fisher2")) {
 					n <- gsub("_", " ", colnames(testSet$vals))
@@ -2521,7 +2639,6 @@ shinyServer(function(input, output, session) {
 					}			
 				
 			else if (inp$type %in% c("chisq", "fisher")) {
-					print("Drawinng....")
 					n <- gsub("_", " ", colnames(testSet$vals))
 					tagList(
 						fluidRow(
@@ -2760,6 +2877,7 @@ shinyServer(function(input, output, session) {
 				if (testSet$settings == "colComp"){n <- gsub("_", " ", colnames(testSet$vals))}
 				else if (testSet$settings == "grComp"){n <- levels(testSet$Vals[,2])}
 				pval <- 1-pf(inp$sm$fstatistic[1], inp$sm$fstatistic[2], inp$sm$fstatistic[3])
+				print(inp$sm)
 				tagList(
 					fluidRow(
 						column(2),			
@@ -2812,9 +2930,28 @@ shinyServer(function(input, output, session) {
 										" the significance level ", 
 										sprintf("(p<%g, F= %g, df= %g and %g) ",  max(round(pval, 4), 0.0001), round(inp$sm$fstatistic[1],3), inp$sm$fstatistic[2], inp$sm$fstatistic[3]),
 										"suggests that ",ifelse(pval<0.05, "at least one", "none"), " of these groups",ifelse(pval<0.05, "differs", "does not substantially differ"), " from the rest.",
-										sep=""),
-									fixed=T)							
-									)							
+										ifelse(input$setContsCol==0, "", 
+											ifelse(sum(inp$sm$coefficients[-1,4]<0.05)>0, paste(" Additionally, the following manually preset contrasts were identified as significant (at p<0.05):"), "None of the manually preset contrasts were identified as significant (at p<0.05)")), sep=""),
+									fixed=T)										
+									), 
+								{
+								if (input$setContsCol>0) {
+									if (sum(inp$sm$coefficients[-1,4]<0.05)>0){
+										o2 <- "<p><ul>"								
+										for (i in 2:nrow(inp$sm$coefficients)){
+											if (inp$sm$coefficients[i,][4]<0.05){
+												o2 <- paste(o2,"<li>", 
+													inp$conts[i-1],
+													"</li>"
+													)
+												}
+											}
+										o2 <- paste(o2, "</ul></p>")
+										HTML(o2)																			
+										}
+									}
+								
+								}								
 								)
 							),
 						column(2)			
@@ -2824,7 +2961,7 @@ shinyServer(function(input, output, session) {
 				
 			
 			else if (inp$type == "anovaOnRanks"){
-
+				print("AOVonRanks")
 				if (testSet$settings == "colComp"){n <- gsub("_", " ", colnames(testSet$vals))}
 				else if (testSet$settings == "grComp"){n <- levels(testSet$Vals[,2])}
 				pval <- 1-pf(inp$sm$fstatistic[1], inp$sm$fstatistic[2], inp$sm$fstatistic[3])
@@ -2880,9 +3017,28 @@ shinyServer(function(input, output, session) {
 										" the significance level ", 
 										sprintf("(p<%g, F= %g, df= %g and %g) ",  max(round(pval, 4), 0.0001), round(inp$sm$fstatistic[1],3), inp$sm$fstatistic[2], inp$sm$fstatistic[3]),
 										"suggests that ",ifelse(pval<0.05, "at least one", "none"), " of these groups",ifelse(pval<0.05, "differs", "does not substantially differ"), " from the rest.",
-										sep=""),
-									fixed=T)							
-									)							
+										ifelse(input$setContsCol==0, "", 
+											ifelse(sum(inp$sm$coefficients[-1,4]<0.05)>0, paste(" Additionally, the following manually preset contrasts were identified as significant (at p<0.05):"), "None of the manually preset contrasts were identified as significant (at p<0.05)")), sep=""),
+									fixed=T)										
+									), 
+								{
+								if (input$setContsCol>0) {
+									if (sum(inp$sm$coefficients[-1,4]<0.05)>0){
+										o2 <- "<p><ul>"								
+										for (i in 2:nrow(inp$sm$coefficients)){
+											if (inp$sm$coefficients[i,][4]<0.05){
+												o2 <- paste(o2,"<li>", 
+													inp$conts[i-1],
+													"</li>"
+													)
+												}
+											}
+										o2 <- paste(o2, "</ul></p>")
+										HTML(o2)																			
+										}
+									}
+								
+								}									
 								)
 							),
 						column(2)			
@@ -2902,7 +3058,7 @@ shinyServer(function(input, output, session) {
 			
 			inp <- testRes()
 			# print
-			# print(inp)
+			print(inp)
 			
 			if (inp$type %in% c("chisq2", "fisher2")) {
 
@@ -3206,10 +3362,29 @@ shinyServer(function(input, output, session) {
 										". The fact that the p-value yielded by the test was ", ifelse(pval<0.05, "below", "above"), 
 										" the significance level ", 
 										sprintf("(p<%g, F= %g, df= %g and %g) ",  max(round(pval, 4), 0.0001), round(inp$sm$fstatistic[1],3), inp$sm$fstatistic[2], inp$sm$fstatistic[3]),
-										"suggests that ",ifelse(pval<0.05, "at least one", "none"), " of these groups",ifelse(pval<0.05, "differs", "does not substantially differ"), " from the rest.",
-										sep=""),
-									fixed=T)							
-									)							
+										"suggests that ",ifelse(pval<0.05, "at least one", "none"), " of these groups ",ifelse(pval<0.05, "differs", "substantially differs"), " from the rest.",
+										ifelse(input$setContsGr==0, "", 
+											ifelse(sum(inp$sm$coefficients[-1,4]<0.05)>0, paste(" Additionally, the following manually preset contrasts were identified as significant (at p<0.05):"), "None of the manually preset contrasts were identified as significant (at p<0.05)")), sep=""),
+									fixed=T)										
+									), 
+								{
+								if (input$setContsCol>0) {
+									if (sum(inp$sm$coefficients[-1,4]<0.05)>0){
+										o2 <- "<p><ul>"								
+										for (i in 2:nrow(inp$sm$coefficients)){
+											if (inp$sm$coefficients[i,][4]<0.05){
+												o2 <- paste(o2,"<li>", 
+													inp$conts[i-1],
+													"</li>"
+													)
+												}
+											}
+										o2 <- paste(o2, "</ul></p>")
+										HTML(o2)																			
+										}
+									}
+								
+								}		
 								)
 							),
 						column(2)			
@@ -3274,9 +3449,28 @@ shinyServer(function(input, output, session) {
 										" the significance level ", 
 										sprintf("(p<%g, F= %g, df= %g and %g) ",  max(round(pval, 4), 0.0001), round(inp$sm$fstatistic[1],3), inp$sm$fstatistic[2], inp$sm$fstatistic[3]),
 										"suggests that ",ifelse(pval<0.05, "at least one", "none"), " of these groups",ifelse(pval<0.05, "differs", "does not substantially differ"), " from the rest.",
-										sep=""),
-									fixed=T)							
-									)							
+										ifelse(input$setContsGr==0, "", 
+											ifelse(sum(inp$sm$coefficients[-1,4]<0.05)>0, paste(" Additionally, the following manually preset contrasts were identified as significant (at p<0.05):"), "None of the manually preset contrasts were identified as significant (at p<0.05)")), sep=""),
+									fixed=T)										
+									), 
+								{
+								if (input$setContsCol>0) {
+									if (sum(inp$sm$coefficients[-1,4]<0.05)>0){
+										o2 <- "<p><ul>"								
+										for (i in 2:nrow(inp$sm$coefficients)){
+											if (inp$sm$coefficients[i,][4]<0.05){
+												o2 <- paste(o2,"<li>", 
+													inp$conts[i-1],
+													"</li>"
+													)
+												}
+											}
+										o2 <- paste(o2, "</ul></p>")
+										HTML(o2)																			
+										}
+									}
+								
+								}							
 								)
 							),
 						column(2)			
@@ -3643,11 +3837,12 @@ shinyServer(function(input, output, session) {
 		
 	output$testPlotColComp <- renderPlot({
 		req(testRes(), testSet$settings)
+
 		if (testSet$settings== "colComp"){
 			inp <- testRes()
 			
 			if (inp$type %in% c("fisher2", "chisq2", "fisher", "chisq", "ttest2", "wilcox2", "anova", "anovaOnRanks", "spearman", "pearson")) {
-				inp$plot + theme(text=element_text(family=ifelse(settings$family=="serif", "serif", "sans")))
+				inp$plot + theme(text=element_text(family=ifelse(settings$serif=="serif", "serif", "sans")))
 				}		
 			}
 		else {invisible()}		
@@ -3655,12 +3850,14 @@ shinyServer(function(input, output, session) {
 			
 	output$testPlotGrComp <- renderPlot({
 		req(testRes(), testSet$settings)
+
 		if (testSet$settings== "grComp"){
 			inp <- testRes()
 			
 			if (inp$type %in% c("fisher2", "chisq2", "fisher", "chisq", "ttest2", "wilcox2", "anova", "anovaOnRanks")) {
-				inp$plot + theme(text=element_text(family=ifelse(settings$family=="serif", "serif", "sans")))
+				inp$plot + theme(text=element_text(family=ifelse(settings$serif=="serif", "serif", "sans")))
 				}		
+			
 			}
 		else {invisible()}		
 		})
@@ -3672,7 +3869,7 @@ shinyServer(function(input, output, session) {
 			print("MODELLING")
 			# print(inp$type)
 			if (inp$type %in% c("linreg")) {
-				inp$plot + theme(text=element_text(family=ifelse(settings$family=="serif", "serif", "sans")))
+				inp$plot + theme(text=element_text(family=ifelse(settings$serif=="serif", "serif", "sans")))
 				}
 			else {invisible()}	
 				
