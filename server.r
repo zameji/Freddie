@@ -1419,7 +1419,7 @@ shinyServer(function(input, output, session) {
 					req(input$catVis)
 					fil <- pars$pred %in% cookedData$nums			
 					p <- ggplot(plotSet, aes_string(x=pars$outcome, y=pars$pred[fil]))
-					p <- p + geom_point()
+					# p <- p + geom_point()
 					if (input$catVis == "violin_col"){p <- p + geom_violin(aes_string(fill=pars$pred[!fil]), draw_quantiles=c(0.25,0.5,0.75)) + coord_flip()
 						colScale <- "fill_discrete"}
 					else if (input$catVis == "violin_facet"){p <- p + geom_violin(draw_quantiles=c(0.25,0.5,0.75)) + coord_flip() + facet_wrap(pars$pred[!fil])}	
