@@ -424,7 +424,7 @@ getSummary <- function(dt.i){
 shinyServer(function(input, output, session) {
 	cookedData <- reactiveValues(cats=NULL, nums=NULL, cooked=NULL)				
 	plotType <- reactiveValues(current=NULL)
-	importSettings <- reactiveValues(header=TRUE, sep="\t", quoter='"')	
+	importSettings <- reactiveValues(header=TRUE, sep="\t", quoter='"', dec=".")	
 	testSet <- reactiveValues(settings=NULL, vals=NULL, manConts=NULL)
 	settings <- reactiveValues(na.ignore="ignore", mod="real", cols="b&w", serif="serif")
 	summaryVals <- reactiveValues(freqs=NULL)
@@ -496,7 +496,7 @@ shinyServer(function(input, output, session) {
 					'text/tab-separated-values',
 					'text/plain',
 					'csv',
-					'tsv'))	{read.csv(inFile$datapath, header=importSettings$header, sep=importSettings$sep, quote=importSettings$quoter)}
+					'tsv'))	{read.csv(inFile$datapath, header=importSettings$header, sep=importSettings$sep, quote=importSettings$quoter, dec=importSettings$dec)}
 				else {return(NULL)}}
 		})
 	
@@ -570,6 +570,10 @@ shinyServer(function(input, output, session) {
 								 Semicolon=';',
 								 Tab='\t'),
 							   importSettings$sep),
+					selectInput(inputId='dec', label='Decimal sign',
+							   c("Point"='.',
+								 'Comma'=','),
+							   importSettings$dec),							   							   
 					selectInput(inputId='quoter', label='Quote sign',
 							   c(None='',
 								 'Double Quote'='"',
@@ -585,6 +589,7 @@ shinyServer(function(input, output, session) {
 		importSettings$header <- ifelse(input$header=="h", T, F)
 		importSettings$quoter <- input$quoter
 		importSettings$sep <- input$sep	
+		importSettings$dec <- input$dec
 		removeModal()
 		})
 	
