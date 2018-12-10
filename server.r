@@ -473,8 +473,8 @@ shinyServer(function(input, output, session) {
 											 'text/comma-separated-values', 
 											 'text/plain',
 											 'text/tab-separated-values',
-											 'csv',
-											 'tsv')
+											 'csv'
+											 )
 					),
 				hr(),
 				p(a("Download sample data", href="https://onedrive.live.com/download?cid=8BF09AD1C8343122&resid=8BF09AD1C8343122%21258985&authkey=ACWhDNRScGBzKwk"),  style='text-align:center'),
