@@ -1,0 +1,43 @@
+library(devtools)
+library(versions)
+
+# Tested under R 3.5.1
+install.dates('shiny', as.Date('2018-12-01'))
+install.dates('httpuv', as.Date('2018-12-01'))
+install.dates('lifecycle', as.Date('2018-12-01'))
+install.dates('shinyLP', as.Date('2018-12-01'))
+install.dates('shinyBS', as.Date('2018-12-01'))
+install.dates('shinyjqui', as.Date('2018-12-01'))
+install.dates('dplyr', as.Date('2018-12-01'))
+install.dates('lmtest', as.Date('2018-12-01'))
+install.dates('tidyverse', as.Date('2018-12-01'))
+install.dates('lm.beta', as.Date('2018-12-01'))
+install.dates('ggplot2', as.Date('2018-12-01'))
+install.dates('RColorBrewer', as.Date('2018-12-01'))
+install.dates('car', as.Date('2018-12-01'))
+install.dates('data.table', as.Date('2018-12-01'))
+install.dates('lifecycle', as.Date('2022-05-01'))
+install.dates('pillar', as.Date('2022-05-01'))
+
+library(shiny)
+library(shiny)
+library(shinyLP)
+library(shinyBS)
+library(shinyjqui)
+library(dplyr)
+library(tools)
+library(tidyverse)
+library(lmtest)
+library(lm.beta)
+library(ggplot2)
+library(RColorBrewer)	
+library(car)
+library(data.table)
+library(pillar)
+
+runApp('C:/users/zamej/Development/freddie-master')
+
+
+rsconnect::setAccountInfo(name='YOUR_NAME', token='YOUR_TOKEN', secret='YOUR_SECRET')
+rsconnect::deployApp('C:/users/zamej/Development/freddie-master')
+
